@@ -275,6 +275,13 @@ function DashboardLayoutInner({ children }: { children: React.ReactNode }) {
                       {profile?.email}
                     </div>
                   </div>
+                  <button
+                    onClick={exitDemo}
+                    className="p-1.5 rounded-lg text-muted hover:text-foreground hover:bg-white/5 transition-colors"
+                    title="Exit demo"
+                  >
+                    <LogOut className="w-4 h-4" />
+                  </button>
                 </div>
               ) : (
                 <div className="flex items-center gap-3">
