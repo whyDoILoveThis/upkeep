@@ -5,12 +5,13 @@ import { getAuthUserId } from "@/lib/auth-helpers";
 // Seeds demo data into Firebase Realtime DB, scoped per user.
 // Anonymous demo users share "demo" prefix; real users get "{userId}-demo" prefix.
 
-function resolveContext(demoRole: string | undefined, userId: string | null) {
+function resolveContext(demoRole: string | undefined, userId: string | null, userRole: string | null) {
   const isDemoMode = demoRole === "homeowner" || demoRole === "management";
   // Prefix for all generated record keys — isolates each user's demo data
   const p = isDemoMode ? "demo" : `${userId}-demo`;
-  const mgmtId = isDemoMode ? `${p}-management` : userId!;
-  return { isDemoMode, p, mgmtId };
+  const isHomeowner = isDemoMode ? demoRole === "homeowner" : userRole === "homeowner";
+  const mgmtId = isDemoMode ? `${p}-management` : isHomeowner ? `${p}-management` : userId!;
+  return { isDemoMode, isHomeowner, p, mgmtId };
 }
 
 /** Build the full set of demo keys for a given prefix so DELETE can clean up */
@@ -35,7 +36,15 @@ export async function POST(req: NextRequest) {
   }
 
   const db = getDb();
-  const { isDemoMode, p, mgmtId } = resolveContext(demoRole, userId);
+
+  // Look up real user's role if authenticated
+  let userRole: string | null = null;
+  if (userId) {
+    const userSnap = await db.ref(`users/${userId}`).get();
+    if (userSnap.exists()) userRole = userSnap.val().role;
+  }
+
+  const { isDemoMode, isHomeowner, p, mgmtId } = resolveContext(demoRole, userId, userRole);
 
   // Scoped IDs
   const hw1 = `${p}-homeowner`;
@@ -53,13 +62,184 @@ export async function POST(req: NextRequest) {
   const eq6 = `${p}-eq-6`;
 
   // Check if already seeded for this user
-  const check = await db.ref(`users/${p}-homeowner`).get();
+  const checkKey = isHomeowner && !isDemoMode ? `${p}-management` : `${p}-homeowner`;
+  const check = await db.ref(`users/${checkKey}`).get();
   if (check.exists()) {
     return NextResponse.json({ seeded: false, message: "Already seeded" });
   }
 
   const now = Date.now();
   const DAY = 86400000;
+
+  // --- Homeowner-specific seed path (real authenticated homeowner) ---
+  if (isHomeowner && !isDemoMode) {
+    // Create a demo management company for this homeowner
+    await db.ref(`users/${mgmtKey}`).set({
+      id: mgmtKey,
+      clerkId: mgmtKey,
+      role: "management",
+      name: "Apex Property Management",
+      email: "demo@apex-mgmt.com",
+      phone: "555-100-0000",
+      address: "",
+      company: "Apex Property Management",
+      createdAt: now - 120 * DAY,
+    });
+
+    // Create one job linking the demo manager to this homeowner
+    const hwName = userRole ? (await db.ref(`users/${userId}`).get()).val()?.name || "Homeowner" : "Homeowner";
+    await db.ref(`jobs/${job1}`).set({
+      managementId: mgmtId,
+      managementName: "Apex Property Management",
+      homeownerId: userId,
+      homeownerName: hwName,
+      title: `${hwName.split(" ").pop()} Residence`,
+      address: "",
+      status: "active",
+      notes: "Demo job — full-service maintenance contract.",
+      createdAt: now - 80 * DAY,
+      updatedAt: now - 2 * DAY,
+    });
+
+    // Equipment for the homeowner
+    await db.ref("equipment").update({
+      [eq1]: {
+        userId,
+        managementId: mgmtId,
+        jobId: job1,
+        name: "Central Air Conditioner",
+        category: "HVAC",
+        manufacturer: "Carrier",
+        modelNo: "24ACC636A003",
+        serialNo: "CAR-2023-78541",
+        location: "Exterior / Side Yard",
+        datePurchased: "2021-06-15",
+        warrantyExpiration: "2026-06-15",
+        notes: "3-ton split system. Filter size 20x25x1.",
+        createdAt: now - 70 * DAY,
+        updatedAt: now - 10 * DAY,
+      },
+      [eq2]: {
+        userId,
+        managementId: mgmtId,
+        jobId: job1,
+        name: "Tankless Water Heater",
+        category: "Plumbing",
+        manufacturer: "Rinnai",
+        modelNo: "RU199iN",
+        serialNo: "RIN-2022-44312",
+        location: "Utility Room",
+        datePurchased: "2022-03-10",
+        warrantyExpiration: "2027-03-10",
+        notes: "Descale every 12 months. Last descaled Jan.",
+        createdAt: now - 65 * DAY,
+        updatedAt: now - 5 * DAY,
+      },
+      [eq3]: {
+        userId,
+        managementId: mgmtId,
+        jobId: job1,
+        name: "Smart Thermostat",
+        category: "HVAC",
+        manufacturer: "Ecobee",
+        modelNo: "EB-STATE6L-01",
+        serialNo: "ECO-2023-10092",
+        location: "Main Hallway",
+        notes: "Wi-Fi enabled. Replace remote sensor batteries yearly.",
+        createdAt: now - 60 * DAY,
+        updatedAt: now - 60 * DAY,
+      },
+    });
+
+    // Reminders
+    await db.ref("reminders").update({
+      [`${p}-rem-1`]: {
+        userId,
+        managementId: mgmtId,
+        jobId: job1,
+        title: "Replace HVAC filter",
+        description: "20x25x1 pleated filter for central AC unit",
+        dueDate: new Date(now + 14 * DAY).toISOString().split("T")[0],
+        recurring: "quarterly",
+        equipmentId: eq1,
+        equipmentName: "Central Air Conditioner",
+        completed: false,
+        createdAt: now - 60 * DAY,
+      },
+      [`${p}-rem-2`]: {
+        userId,
+        managementId: mgmtId,
+        jobId: job1,
+        title: "Descale water heater",
+        description: "Annual vinegar flush for tankless unit",
+        dueDate: new Date(now + 60 * DAY).toISOString().split("T")[0],
+        recurring: "yearly",
+        equipmentId: eq2,
+        equipmentName: "Tankless Water Heater",
+        completed: false,
+        createdAt: now - 50 * DAY,
+      },
+    });
+
+    // Tasks
+    await db.ref("tasks").update({
+      [`${p}-task-1`]: {
+        homeownerId: userId,
+        homeownerName: hwName,
+        managementId: mgmtId,
+        jobId: job1,
+        assignedTo: mgmtId,
+        assignedToName: "Apex Property Management",
+        title: "Fix kitchen faucet leak",
+        description: "Slow drip from kitchen sink faucet — started last week",
+        status: "in-progress",
+        priority: "high",
+        updates: {
+          "u1": {
+            id: "u1",
+            message: "Inspected faucet. Cartridge needs replacement — ordered parts.",
+            authorId: mgmtId,
+            authorName: "Apex Property Management",
+            authorRole: "management",
+            timestamp: now - 3 * DAY,
+          },
+        },
+        createdAt: now - 5 * DAY,
+        updatedAt: now - 1 * DAY,
+      },
+    });
+
+    // Billing
+    await db.ref("billing").update({
+      [`${p}-bill-1`]: {
+        homeownerId: userId,
+        homeownerName: hwName,
+        managementId: mgmtId,
+        jobId: job1,
+        description: "Quarterly maintenance — Q1 service",
+        amount: 450,
+        status: "paid",
+        dueDate: new Date(now - 30 * DAY).toISOString().split("T")[0],
+        paidDate: new Date(now - 28 * DAY).toISOString().split("T")[0],
+        createdAt: now - 45 * DAY,
+      },
+      [`${p}-bill-2`]: {
+        homeownerId: userId,
+        homeownerName: hwName,
+        managementId: mgmtId,
+        jobId: job1,
+        description: "Faucet cartridge replacement — parts & labor",
+        amount: 185,
+        status: "pending",
+        dueDate: new Date(now + 15 * DAY).toISOString().split("T")[0],
+        createdAt: now - 1 * DAY,
+      },
+    });
+
+    return NextResponse.json({ seeded: true });
+  }
+
+  // --- Management / anonymous demo seed path ---
 
   // Users — management placeholder (only for anonymous demo), plus scoped homeowners
   if (isDemoMode) {
@@ -116,6 +296,7 @@ export async function POST(req: NextRequest) {
   const jobsData: Record<string, unknown> = {
     [job1]: {
       managementId: mgmtId,
+      managementName: "Apex Property Management",
       homeownerId: hw1,
       homeownerName: "Alex Rivera",
       title: "Rivera Residence",
@@ -127,6 +308,7 @@ export async function POST(req: NextRequest) {
     },
     [job2]: {
       managementId: mgmtId,
+      managementName: "Apex Property Management",
       homeownerId: hw2,
       homeownerName: "Jordan Patel",
       title: "Patel Estate",
@@ -138,6 +320,7 @@ export async function POST(req: NextRequest) {
     },
     [job3]: {
       managementId: mgmtId,
+      managementName: "Apex Property Management",
       homeownerId: hw3,
       homeownerName: "Sam Nakamura",
       title: "Nakamura Home",
@@ -581,7 +764,7 @@ export async function DELETE(req: NextRequest) {
   }
 
   const db = getDb();
-  const { p } = resolveContext(demoRole, userId);
+  const { p } = resolveContext(demoRole, userId, null);
   const keys = getDemoKeys(p);
 
   const removes: Promise<void>[] = [];
@@ -604,7 +787,13 @@ export async function GET(req: NextRequest) {
   }
 
   const db = getDb();
-  const { p } = resolveContext(demoRole, userId);
-  const check = await db.ref(`users/${p}-homeowner`).get();
+  const { p } = resolveContext(demoRole, userId, null);
+  // Check for any seeded user — management key exists in both paths
+  const check = await db.ref(`users/${p}-management`).get();
+  if (!check.exists()) {
+    // Fallback to homeowner key for older seeds
+    const check2 = await db.ref(`users/${p}-homeowner`).get();
+    return NextResponse.json({ loaded: check2.exists() });
+  }
   return NextResponse.json({ loaded: check.exists() });
 }
