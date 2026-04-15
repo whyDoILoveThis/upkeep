@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAuthUserId } from "@/lib/auth-helpers";
 import { getDb } from "@/lib/firebase-admin";
-import type { Reminder, Task, BillingRecord, HandymanTime } from "@/lib/types";
+import type { Reminder, Task, BillingRecord, HandymanTime, Job } from "@/lib/types";
 
 function getQuarterRange() {
   const now = new Date();
@@ -25,35 +25,43 @@ export async function GET(req: NextRequest) {
   const isScoped = isManagement && homeownerId;
 
   // Fetch counts in parallel
-  const [equipSnap, remindersSnap, tasksSnap, billingSnap, timeSnap] = await Promise.all([
+  const [equipSnap, remindersSnap, tasksSnap, billingSnap, timeSnap, jobsSnap] = await Promise.all([
     isScoped
       ? db.ref("equipment").orderByChild("userId").equalTo(scopeId).get()
       : isManagement
-        ? db.ref("equipment").get()
+        ? db.ref("equipment").orderByChild("managementId").equalTo(userId).get()
         : db.ref("equipment").orderByChild("userId").equalTo(userId).get(),
     isScoped
       ? db.ref("reminders").orderByChild("userId").equalTo(scopeId).get()
       : isManagement
-        ? db.ref("reminders").get()
+        ? db.ref("reminders").orderByChild("managementId").equalTo(userId).get()
         : db.ref("reminders").orderByChild("userId").equalTo(userId).get(),
     isScoped
       ? db.ref("tasks").orderByChild("homeownerId").equalTo(scopeId).get()
       : isManagement
-        ? db.ref("tasks").get()
+        ? db.ref("tasks").orderByChild("managementId").equalTo(userId).get()
         : db.ref("tasks").orderByChild("homeownerId").equalTo(userId).get(),
     isScoped
       ? db.ref("billing").orderByChild("homeownerId").equalTo(scopeId).get()
       : isManagement
-        ? db.ref("billing").get()
+        ? db.ref("billing").orderByChild("managementId").equalTo(userId).get()
         : db.ref("billing").orderByChild("homeownerId").equalTo(userId).get(),
     isScoped
       ? db.ref("handymanTime").orderByChild("userId").equalTo(scopeId).get()
       : isManagement
         ? db.ref("handymanTime").orderByChild("managementId").equalTo(userId).get()
         : db.ref("handymanTime").orderByChild("userId").equalTo(userId).get(),
+    isManagement
+      ? db.ref("jobs").orderByChild("managementId").equalTo(userId).get()
+      : db.ref("jobs").orderByChild("homeownerId").equalTo(userId).get(),
   ]);
 
   const equipmentCount = equipSnap.exists() ? Object.keys(equipSnap.val()).length : 0;
+
+  const jobs: Job[] = jobsSnap.exists()
+    ? Object.entries(jobsSnap.val() as Record<string, Omit<Job, "id">>).map(([id, d]) => ({ id, ...d }))
+    : [];
+  const activeJobs = jobs.filter((j) => j.status === "active").length;
 
   const reminders: Reminder[] = remindersSnap.exists()
     ? Object.entries(remindersSnap.val() as Record<string, Omit<Reminder, "id">>).map(([id, d]) => ({ id, ...d }))
@@ -125,6 +133,7 @@ export async function GET(req: NextRequest) {
 
   return NextResponse.json({
     equipmentCount,
+    activeJobs,
     pendingReminders,
     activeTasks,
     pendingBills,

@@ -15,6 +15,8 @@ export interface UserProfile {
 export interface Equipment {
   id: string;
   userId: string;
+  managementId?: string;
+  jobId?: string;
   name: string;
   category: string;
   datePurchased?: string;
@@ -33,6 +35,8 @@ export interface Equipment {
 export interface Reminder {
   id: string;
   userId: string;
+  managementId?: string;
+  jobId?: string;
   title: string;
   description?: string;
   dueDate: string;
@@ -46,6 +50,8 @@ export interface Reminder {
 export interface FileRecord {
   id: string;
   userId: string;
+  managementId?: string;
+  jobId?: string;
   equipmentId?: string;
   equipmentName?: string;
   name: string;
@@ -68,6 +74,8 @@ export interface TaskUpdate {
 export interface Task {
   id: string;
   homeownerId: string;
+  managementId?: string;
+  jobId?: string;
   homeownerName?: string;
   assignedTo?: string;
   assignedToName?: string;
@@ -85,6 +93,8 @@ export interface Task {
 export interface BillingRecord {
   id: string;
   homeownerId: string;
+  managementId?: string;
+  jobId?: string;
   homeownerName?: string;
   description: string;
   amount: number;

@@ -10,6 +10,7 @@ export const equipmentSchema = z.object({
   manufacturer: z.string().max(200).optional(),
   location: z.string().max(200).optional(),
   notes: z.string().max(2000).optional(),
+  jobId: z.string().optional(),
 });
 
 export const reminderSchema = z.object({
@@ -18,6 +19,7 @@ export const reminderSchema = z.object({
   dueDate: z.string().min(1, "Due date is required"),
   recurring: z.enum(["none", "weekly", "monthly", "quarterly", "yearly"]),
   equipmentId: z.string().optional(),
+  jobId: z.string().optional(),
 });
 
 export const taskSchema = z.object({
@@ -26,6 +28,7 @@ export const taskSchema = z.object({
   priority: z.enum(["low", "medium", "high"]),
   equipmentId: z.string().optional(),
   homeownerId: z.string().optional(),
+  jobId: z.string().optional(),
 });
 
 export const taskUpdateSchema = z.object({
@@ -37,6 +40,7 @@ export const billingSchema = z.object({
   amount: z.number().positive("Amount must be positive"),
   dueDate: z.string().min(1, "Due date is required"),
   homeownerId: z.string().min(1, "Homeowner is required"),
+  jobId: z.string().optional(),
 });
 
 export const profileSchema = z.object({

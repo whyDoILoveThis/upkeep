@@ -17,7 +17,7 @@ export async function GET(req: NextRequest) {
   if (userRole === "management" && homeownerId) {
     snapshot = await db.ref("files").orderByChild("userId").equalTo(homeownerId).get();
   } else if (userRole === "management") {
-    snapshot = await db.ref("files").get();
+    snapshot = await db.ref("files").orderByChild("managementId").equalTo(userId).get();
   } else {
     snapshot = await db.ref("files").orderByChild("userId").equalTo(userId).get();
   }
@@ -39,6 +39,7 @@ export async function POST(req: NextRequest) {
   const formData = await req.formData();
   const file = formData.get("file") as File | null;
   const equipmentId = formData.get("equipmentId") as string | null;
+  const jobId = formData.get("jobId") as string | null;
 
   if (!file) {
     return NextResponse.json({ error: "No file provided" }, { status: 400 });
@@ -52,6 +53,9 @@ export async function POST(req: NextRequest) {
   const { fileId: appwriteFileId, fileUrl } = await uploadFile(buffer, file.name);
 
   const db = getDb();
+  const userSnap = await db.ref(`users/${userId}`).get();
+  const user = userSnap.val();
+  const isManagement = user?.role === "management";
 
   // Resolve equipment name
   let equipmentName: string | undefined;
@@ -62,7 +66,9 @@ export async function POST(req: NextRequest) {
 
   const ref = db.ref("files").push();
   const fileRecord = {
-    userId,
+    userId: isManagement ? (formData.get("homeownerId") as string || userId) : userId,
+    managementId: isManagement ? userId : null,
+    jobId: jobId || null,
     equipmentId: equipmentId || null,
     equipmentName: equipmentName || null,
     name: file.name,

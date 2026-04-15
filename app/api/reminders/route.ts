@@ -17,7 +17,7 @@ export async function GET(req: NextRequest) {
   if (userRole === "management" && homeownerId) {
     snapshot = await db.ref("reminders").orderByChild("userId").equalTo(homeownerId).get();
   } else if (userRole === "management") {
-    snapshot = await db.ref("reminders").get();
+    snapshot = await db.ref("reminders").orderByChild("managementId").equalTo(userId).get();
   } else {
     snapshot = await db.ref("reminders").orderByChild("userId").equalTo(userId).get();
   }
@@ -43,6 +43,9 @@ export async function POST(req: NextRequest) {
   }
 
   const db = getDb();
+  const userSnap = await db.ref(`users/${userId}`).get();
+  const user = userSnap.val();
+  const isManagement = user?.role === "management";
 
   // Resolve equipment name if linked
   let equipmentName: string | undefined;
@@ -53,7 +56,9 @@ export async function POST(req: NextRequest) {
 
   const ref = db.ref("reminders").push();
   const reminder = {
-    userId,
+    userId: isManagement ? (body.homeownerId || userId) : userId,
+    managementId: isManagement ? userId : (body.managementId || null),
+    jobId: parsed.data.jobId || null,
     ...parsed.data,
     equipmentName,
     completed: false,

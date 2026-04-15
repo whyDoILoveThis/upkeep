@@ -17,7 +17,7 @@ export async function GET(req: NextRequest) {
   if (userRole === "management" && homeownerId) {
     snapshot = await db.ref("billing").orderByChild("homeownerId").equalTo(homeownerId).get();
   } else if (userRole === "management") {
-    snapshot = await db.ref("billing").get();
+    snapshot = await db.ref("billing").orderByChild("managementId").equalTo(userId).get();
   } else {
     snapshot = await db.ref("billing").orderByChild("homeownerId").equalTo(userId).get();
   }
@@ -57,6 +57,7 @@ export async function POST(req: NextRequest) {
   const ref = db.ref("billing").push();
   const billing = {
     ...parsed.data,
+    managementId: userId,
     homeownerName,
     status: "pending",
     paidDate: null,

@@ -17,7 +17,7 @@ export async function GET(req: NextRequest) {
   if (userRole === "management" && homeownerId) {
     snapshot = await db.ref("equipment").orderByChild("userId").equalTo(homeownerId).get();
   } else if (userRole === "management") {
-    snapshot = await db.ref("equipment").get();
+    snapshot = await db.ref("equipment").orderByChild("managementId").equalTo(userId).get();
   } else {
     snapshot = await db.ref("equipment").orderByChild("userId").equalTo(userId).get();
   }
@@ -43,10 +43,16 @@ export async function POST(req: NextRequest) {
   }
 
   const db = getDb();
+  const userSnap = await db.ref(`users/${userId}`).get();
+  const user = userSnap.val();
+  const isManagement = user?.role === "management";
+
   const ref = db.ref("equipment").push();
 
   const equipment = {
-    userId,
+    userId: isManagement ? (body.homeownerId || userId) : userId,
+    managementId: isManagement ? userId : (body.managementId || null),
+    jobId: parsed.data.jobId || null,
     ...parsed.data,
     photoUrl: body.photoUrl || null,
     photoFileId: body.photoFileId || null,
