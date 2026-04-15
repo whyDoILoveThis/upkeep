@@ -127,6 +127,7 @@ export interface HandymanTime {
 export interface Job {
   id: string;
   managementId: string;
+  managementName?: string;
   homeownerId: string;
   homeownerName?: string;
   title: string;

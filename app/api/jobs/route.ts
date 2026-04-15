@@ -53,9 +53,12 @@ export async function POST(req: NextRequest) {
   const hwSnap = await db.ref(`users/${parsed.data.homeownerId}`).get();
   if (hwSnap.exists()) homeownerName = hwSnap.val().name;
 
+  const managementName = user.name || user.company || null;
+
   const ref = db.ref("jobs").push();
   const job = {
     managementId: userId,
+    managementName,
     homeownerId: parsed.data.homeownerId,
     homeownerName: homeownerName || null,
     title: parsed.data.title,
