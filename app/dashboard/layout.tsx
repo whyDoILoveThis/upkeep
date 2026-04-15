@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, createContext, useContext } from "react";
+import { useState, useEffect, useRef, createContext, useContext } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { UserButton, useUser, SignOutButton } from "@clerk/nextjs";
@@ -16,6 +16,7 @@ import {
   Menu,
   X,
   ChevronRight,
+  ChevronDown,
   LogOut,
   Eye,
   Briefcase,
@@ -106,6 +107,8 @@ function DashboardLayoutInner({ children }: { children: React.ReactNode }) {
   const { demoMode, demoRole, demoReady } = useDemoMode();
   const { selectedJob, setSelectedJob } = useSelectedJob();
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [jobDropdownOpen, setJobDropdownOpen] = useState(false);
+  const jobDropdownRef = useRef<HTMLDivElement>(null);
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -156,6 +159,19 @@ function DashboardLayoutInner({ children }: { children: React.ReactNode }) {
     setSelectedJob(null);
     window.location.href = "/";
   }
+
+  useEffect(() => {
+    function handleClickOutside(e: MouseEvent) {
+      if (
+        jobDropdownRef.current &&
+        !jobDropdownRef.current.contains(e.target as Node)
+      ) {
+        setJobDropdownOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
 
   return (
     <UserContext value={{ profile, loading }}>
@@ -324,16 +340,44 @@ function DashboardLayoutInner({ children }: { children: React.ReactNode }) {
                 <Menu className="w-5 h-5" />
               </button>
               {profile?.role === "management" && (
-                <Link
-                  href="/dashboard/jobs"
-                  className="flex items-center gap-2 px-3 py-1.5 rounded-xl glass text-sm group transition-colors hover:bg-white/5"
-                >
-                  <Briefcase className="w-3.5 h-3.5 text-accent-light" />
-                  <span className="font-medium truncate max-w-50">
-                    {selectedJob ? selectedJob.title : "Select a Job"}
-                  </span>
-                  <ChevronRight className="w-3 h-3 text-muted group-hover:text-foreground transition-colors" />
-                </Link>
+                <div className="relative" ref={jobDropdownRef}>
+                  <button
+                    onClick={() => setJobDropdownOpen(!jobDropdownOpen)}
+                    className="flex items-center gap-2 px-3 py-1.5 rounded-xl glass text-sm group transition-colors hover:bg-white/5"
+                  >
+                    <Briefcase className="w-3.5 h-3.5 text-accent-light" />
+                    <span className="font-medium truncate max-w-50">
+                      {selectedJob ? selectedJob.title : "All Jobs"}
+                    </span>
+                    <ChevronDown
+                      className={`w-3 h-3 text-muted transition-transform ${jobDropdownOpen ? "rotate-180" : ""}`}
+                    />
+                  </button>
+                  {jobDropdownOpen && (
+                    <div className="absolute top-full left-0 mt-1 w-48 rounded-xl border border-white/10 shadow-xl py-1 z-50 bg-slate-900">
+                      {selectedJob && (
+                        <button
+                          onClick={() => {
+                            setSelectedJob(null);
+                            setJobDropdownOpen(false);
+                          }}
+                          className="w-full flex items-center gap-2 px-3 py-2 text-sm text-muted hover:text-foreground hover:bg-white/5 transition-colors"
+                        >
+                          <X className="w-3.5 h-3.5" />
+                          Deselect Job
+                        </button>
+                      )}
+                      <Link
+                        href="/dashboard/jobs"
+                        onClick={() => setJobDropdownOpen(false)}
+                        className="flex items-center gap-2 px-3 py-2 text-sm text-muted hover:text-foreground hover:bg-white/5 transition-colors"
+                      >
+                        <Briefcase className="w-3.5 h-3.5" />
+                        View All Jobs
+                      </Link>
+                    </div>
+                  )}
+                </div>
               )}
               <div className="flex-1" />
               <div className="text-sm text-muted">
