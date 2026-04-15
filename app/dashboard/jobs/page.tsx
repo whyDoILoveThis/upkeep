@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback, useRef } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { useProfile } from "../layout";
 import { useDemoMode } from "@/lib/demo-context";
 import { useSelectedJob } from "@/lib/job-context";
@@ -16,7 +16,6 @@ import {
   ClipboardList,
   Receipt,
   Search,
-  Users,
 } from "lucide-react";
 import type {
   Job,
@@ -25,6 +24,7 @@ import type {
   Task,
   BillingRecord,
 } from "@/lib/types";
+import HomeownerSearch from "@/components/homeowner-search";
 
 export default function JobsPage() {
   const { profile } = useProfile();
@@ -32,7 +32,6 @@ export default function JobsPage() {
   const { selectedJob, setSelectedJob } = useSelectedJob();
   const router = useRouter();
   const [jobs, setJobs] = useState<Job[]>([]);
-  const [homeowners, setHomeowners] = useState<UserProfile[]>([]);
   const [equipment, setEquipment] = useState<Equipment[]>([]);
   const [tasks, setTasks] = useState<Task[]>([]);
   const [bills, setBills] = useState<BillingRecord[]>([]);
@@ -45,11 +44,8 @@ export default function JobsPage() {
   const [search, setSearch] = useState("");
 
   // Homeowner search state for the modal
-  const [hwSearch, setHwSearch] = useState("");
-  const [hwDropdownOpen, setHwDropdownOpen] = useState(false);
   const [selectedHomeowner, setSelectedHomeowner] =
     useState<UserProfile | null>(null);
-  const hwRef = useRef<HTMLDivElement>(null);
 
   const [form, setForm] = useState({
     homeownerId: "",
@@ -67,7 +63,6 @@ export default function JobsPage() {
 
       if (profile?.role === "management") {
         fetches.push(
-          fetch("/api/users/homeowners"),
           fetch("/api/equipment"),
           fetch("/api/tasks"),
           fetch("/api/billing"),
@@ -75,9 +70,8 @@ export default function JobsPage() {
       }
 
       const responses = await Promise.all(fetches);
-      const [jobsRes, homeownersRes, eqRes, tasksRes, billsRes] = responses;
+      const [jobsRes, eqRes, tasksRes, billsRes] = responses;
       if (jobsRes.ok) setJobs(await jobsRes.json());
-      if (homeownersRes?.ok) setHomeowners(await homeownersRes.json());
       if (eqRes?.ok) setEquipment(await eqRes.json());
       if (tasksRes?.ok) setTasks(await tasksRes.json());
       if (billsRes?.ok) setBills(await billsRes.json());
@@ -92,35 +86,18 @@ export default function JobsPage() {
     if (profile) fetchData();
   }, [profile, fetchData]);
 
-  // Close homeowner dropdown on outside click
-  useEffect(() => {
-    function handleClickOutside(e: MouseEvent) {
-      if (hwRef.current && !hwRef.current.contains(e.target as Node)) {
-        setHwDropdownOpen(false);
-      }
-    }
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, []);
-
-  const filteredHomeowners = homeowners.filter(
-    (h) =>
-      !hwSearch ||
-      h.name.toLowerCase().includes(hwSearch.toLowerCase()) ||
-      h.email?.toLowerCase().includes(hwSearch.toLowerCase()) ||
-      h.address?.toLowerCase().includes(hwSearch.toLowerCase()),
-  );
-
-  function selectHomeowner(hw: UserProfile) {
+  function selectHomeowner(hw: UserProfile | null) {
     setSelectedHomeowner(hw);
-    setHwSearch(hw.name);
-    setHwDropdownOpen(false);
-    setForm((f) => ({
-      ...f,
-      homeownerId: hw.id,
-      title: f.title || `${hw.name.split(" ").pop()} Residence`,
-      address: f.address || hw.address || "",
-    }));
+    if (hw) {
+      setForm((f) => ({
+        ...f,
+        homeownerId: hw.id,
+        title: f.title || `${hw.name.split(" ").pop()} Residence`,
+        address: f.address || hw.address || "",
+      }));
+    } else {
+      setForm((f) => ({ ...f, homeownerId: "" }));
+    }
   }
 
   function getJobStats(job: Job) {
@@ -146,7 +123,6 @@ export default function JobsPage() {
       if (res.ok) {
         setShowModal(false);
         setForm({ homeownerId: "", title: "", address: "", notes: "" });
-        setHwSearch("");
         setSelectedHomeowner(null);
         fetchData();
       }
@@ -363,89 +339,15 @@ export default function JobsPage() {
             </div>
 
             <form onSubmit={handleSubmit} className="space-y-4">
-              <div ref={hwRef} className="relative">
+              <div>
                 <label className="block text-sm font-medium mb-1.5">
                   Homeowner *
                 </label>
-                <div className="relative">
-                  <Users className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted" />
-                  <input
-                    type="text"
-                    value={hwSearch}
-                    onChange={(e) => {
-                      setHwSearch(e.target.value);
-                      setHwDropdownOpen(true);
-                      if (
-                        selectedHomeowner &&
-                        e.target.value !== selectedHomeowner.name
-                      ) {
-                        setSelectedHomeowner(null);
-                        setForm((f) => ({ ...f, homeownerId: "" }));
-                      }
-                    }}
-                    onFocus={() => setHwDropdownOpen(true)}
-                    placeholder="Search by name, email, or address..."
-                    required={!form.homeownerId}
-                    className="glass-input w-full rounded-xl pl-10 pr-4 py-2.5 text-sm"
-                  />
-                  {selectedHomeowner && (
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setSelectedHomeowner(null);
-                        setHwSearch("");
-                        setForm((f) => ({ ...f, homeownerId: "" }));
-                      }}
-                      className="absolute right-3 top-1/2 -translate-y-1/2 text-muted hover:text-foreground"
-                    >
-                      <X className="w-3.5 h-3.5" />
-                    </button>
-                  )}
-                </div>
-                {/* Hidden required input for form validation */}
-                <input type="hidden" value={form.homeownerId} required />
-
-                {hwDropdownOpen && !selectedHomeowner && (
-                  <div className="absolute z-10 mt-1 w-full max-h-48 overflow-y-auto glass-strong rounded-xl border border-border shadow-xl">
-                    {filteredHomeowners.length === 0 ? (
-                      <div className="px-4 py-3 text-sm text-muted">
-                        No homeowners found
-                      </div>
-                    ) : (
-                      filteredHomeowners.map((hw) => (
-                        <button
-                          type="button"
-                          key={hw.id}
-                          onClick={() => selectHomeowner(hw)}
-                          className="w-full text-left px-4 py-2.5 hover:bg-white/5 transition-colors flex items-center gap-3"
-                        >
-                          <div className="w-8 h-8 rounded-full bg-accent/20 flex items-center justify-center text-xs font-medium text-accent-light shrink-0">
-                            {hw.name
-                              .split(" ")
-                              .map((n) => n[0])
-                              .join("")
-                              .slice(0, 2)}
-                          </div>
-                          <div className="min-w-0">
-                            <p className="text-sm font-medium truncate">
-                              {hw.name}
-                            </p>
-                            {hw.email && (
-                              <p className="text-xs text-muted truncate">
-                                {hw.email}
-                              </p>
-                            )}
-                            {hw.address && (
-                              <p className="text-xs text-muted/60 truncate">
-                                {hw.address}
-                              </p>
-                            )}
-                          </div>
-                        </button>
-                      ))
-                    )}
-                  </div>
-                )}
+                <HomeownerSearch
+                  onSelect={selectHomeowner}
+                  selectedHomeowner={selectedHomeowner}
+                  required
+                />
               </div>
 
               <div>

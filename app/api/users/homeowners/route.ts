@@ -1,8 +1,9 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { getAuthUserId } from "@/lib/auth-helpers";
 import { getDb } from "@/lib/firebase-admin";
+import type { UserProfile } from "@/lib/types";
 
-export async function GET() {
+export async function GET(req: NextRequest) {
   const userId = await getAuthUserId();
   if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
@@ -20,6 +21,23 @@ export async function GET() {
     return NextResponse.json([]);
   }
 
-  const homeowners = Object.values(usersSnap.val());
+  let homeowners = Object.values(usersSnap.val()) as UserProfile[];
+
+  // Server-side search filtering
+  const q = req.nextUrl.searchParams.get("q")?.trim().toLowerCase();
+  if (q) {
+    homeowners = homeowners.filter(
+      (h) =>
+        h.name?.toLowerCase().includes(q) ||
+        h.email?.toLowerCase().includes(q) ||
+        h.address?.toLowerCase().includes(q) ||
+        h.phone?.toLowerCase().includes(q),
+    );
+  }
+
+  // Limit results for scalability
+  const limit = parseInt(req.nextUrl.searchParams.get("limit") || "20", 10);
+  homeowners = homeowners.slice(0, Math.min(limit, 100));
+
   return NextResponse.json(homeowners);
 }

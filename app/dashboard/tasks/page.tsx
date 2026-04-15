@@ -17,6 +17,7 @@ import {
 import type { Task, Equipment, UserProfile } from "@/lib/types";
 import { useSelectedJob } from "@/lib/job-context";
 import { JobRequired } from "@/components/job-required";
+import HomeownerSearch from "@/components/homeowner-search";
 
 const statusColors: Record<string, string> = {
   pending: "bg-white/5 text-muted",
@@ -35,7 +36,8 @@ export default function TasksPage() {
   const { selectedJob } = useSelectedJob();
   const [tasks, setTasks] = useState<Task[]>([]);
   const [equipment, setEquipment] = useState<Equipment[]>([]);
-  const [homeowners, setHomeowners] = useState<UserProfile[]>([]);
+  const [selectedHomeowner, setSelectedHomeowner] =
+    useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
   const [expandedTask, setExpandedTask] = useState<string | null>(null);
@@ -58,19 +60,16 @@ export default function TasksPage() {
         ? `?homeownerId=${selectedJob.homeownerId}`
         : "";
       const endpoints = [`/api/tasks${params}`, `/api/equipment${params}`];
-      if (profile?.role === "management")
-        endpoints.push("/api/users/homeowners");
 
       const responses = await Promise.all(endpoints.map((url) => fetch(url)));
       if (responses[0].ok) setTasks(await responses[0].json());
       if (responses[1].ok) setEquipment(await responses[1].json());
-      if (responses[2]?.ok) setHomeowners(await responses[2].json());
     } catch {
       // handle
     } finally {
       setLoading(false);
     }
-  }, [profile?.role, selectedJob]);
+  }, [selectedJob]);
 
   useEffect(() => {
     if (profile) fetchData();
@@ -485,22 +484,13 @@ export default function TasksPage() {
                   <label className="block text-sm font-medium mb-1.5">
                     Homeowner
                   </label>
-                  <select
-                    value={form.homeownerId}
-                    onChange={(e) =>
-                      setForm({ ...form, homeownerId: e.target.value })
-                    }
-                    className="glass-input w-full rounded-xl px-4 py-2.5 text-sm"
-                  >
-                    <option value="" className="bg-[#0f172a]">
-                      Select homeowner
-                    </option>
-                    {homeowners.map((h) => (
-                      <option key={h.id} value={h.id} className="bg-[#0f172a]">
-                        {h.name}
-                      </option>
-                    ))}
-                  </select>
+                  <HomeownerSearch
+                    onSelect={(hw) => {
+                      setSelectedHomeowner(hw);
+                      setForm({ ...form, homeownerId: hw?.id || "" });
+                    }}
+                    selectedHomeowner={selectedHomeowner}
+                  />
                 </div>
               )}
 
