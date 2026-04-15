@@ -23,7 +23,11 @@ const fadeUp = {
   visible: (i: number) => ({
     opacity: 1,
     y: 0,
-    transition: { delay: i * 0.1, duration: 0.6, ease: [0.25, 0.46, 0.45, 0.94] },
+    transition: {
+      delay: i * 0.1,
+      duration: 0.6,
+      ease: [0.25, 0.46, 0.45, 0.94],
+    },
   }),
 };
 
@@ -93,13 +97,22 @@ export default function LandingPage() {
             <span className="text-lg font-semibold tracking-tight">Upkeep</span>
           </div>
           <div className="hidden md:flex items-center gap-8 text-sm text-muted">
-            <a href="#features" className="hover:text-foreground transition-colors">
+            <a
+              href="#features"
+              className="hover:text-foreground transition-colors"
+            >
               Features
             </a>
-            <a href="#how-it-works" className="hover:text-foreground transition-colors">
+            <a
+              href="#how-it-works"
+              className="hover:text-foreground transition-colors"
+            >
               How It Works
             </a>
-            <a href="#roles" className="hover:text-foreground transition-colors">
+            <a
+              href="#roles"
+              className="hover:text-foreground transition-colors"
+            >
               For Teams
             </a>
           </div>
@@ -110,7 +123,10 @@ export default function LandingPage() {
             >
               Sign In
             </Link>
-            <Link href="/sign-up" className="btn-primary text-sm flex items-center gap-1.5">
+            <Link
+              href="/sign-up"
+              className="btn-primary text-sm flex items-center gap-1.5"
+            >
               Get Started <ChevronRight className="w-3.5 h-3.5" />
             </Link>
           </div>
@@ -150,9 +166,9 @@ export default function LandingPage() {
             custom={2}
             className="text-lg sm:text-xl text-muted max-w-2xl mx-auto mb-10 leading-relaxed"
           >
-            The all-in-one platform for homeowners and management companies to track
-            equipment, schedule maintenance, manage tasks, and keep everything running
-            perfectly.
+            The all-in-one platform for homeowners and management companies to
+            track equipment, schedule maintenance, manage tasks, and keep
+            everything running perfectly.
           </motion.p>
 
           <motion.div
@@ -222,7 +238,9 @@ export default function LandingPage() {
           >
             {stats.map((stat) => (
               <div key={stat.label} className="glass-card rounded-2xl p-5">
-                <div className="text-2xl font-bold text-accent-light">{stat.value}</div>
+                <div className="text-2xl font-bold text-accent-light">
+                  {stat.value}
+                </div>
                 <div className="text-sm text-muted mt-1">{stat.label}</div>
               </div>
             ))}
@@ -257,20 +275,25 @@ export default function LandingPage() {
               <div className="p-8 grid grid-cols-12 gap-6 min-h-100">
                 {/* Sidebar mockup */}
                 <div className="col-span-3 space-y-3 hidden md:block">
-                  {["Dashboard", "Equipment", "Reminders", "Tasks", "Billing", "Files"].map(
-                    (item, i) => (
-                      <div
-                        key={item}
-                        className={`px-4 py-2.5 rounded-xl text-sm ${
-                          i === 0
-                            ? "bg-accent/10 text-accent-light font-medium"
-                            : "text-muted hover:text-foreground"
-                        }`}
-                      >
-                        {item}
-                      </div>
-                    )
-                  )}
+                  {[
+                    "Dashboard",
+                    "Equipment",
+                    "Reminders",
+                    "Tasks",
+                    "Billing",
+                    "Files",
+                  ].map((item, i) => (
+                    <div
+                      key={item}
+                      className={`px-4 py-2.5 rounded-xl text-sm ${
+                        i === 0
+                          ? "bg-accent/10 text-accent-light font-medium"
+                          : "text-muted hover:text-foreground"
+                      }`}
+                    >
+                      {item}
+                    </div>
+                  ))}
                 </div>
                 {/* Content mockup */}
                 <div className="col-span-12 md:col-span-9 space-y-6">
@@ -287,14 +310,21 @@ export default function LandingPage() {
                       { label: "Equipment", val: "34" },
                       { label: "Time Left", val: "6.5h" },
                     ].map((card) => (
-                      <div key={card.label} className="glass-card rounded-2xl p-5">
+                      <div
+                        key={card.label}
+                        className="glass-card rounded-2xl p-5"
+                      >
                         <div className="text-sm text-muted">{card.label}</div>
-                        <div className="text-3xl font-bold mt-1">{card.val}</div>
+                        <div className="text-3xl font-bold mt-1">
+                          {card.val}
+                        </div>
                       </div>
                     ))}
                   </div>
                   <div className="glass-card rounded-2xl p-5 space-y-3">
-                    <div className="text-sm font-medium text-muted">Recent Activity</div>
+                    <div className="text-sm font-medium text-muted">
+                      Recent Activity
+                    </div>
                     {[1, 2, 3].map((i) => (
                       <div
                         key={i}
@@ -337,7 +367,8 @@ export default function LandingPage() {
               <span className="gradient-text">beautifully simple.</span>
             </h2>
             <p className="text-lg text-muted max-w-xl mx-auto">
-              Every tool you need to manage residential maintenance, from inventory to invoicing.
+              Every tool you need to manage residential maintenance, from
+              inventory to invoicing.
             </p>
           </motion.div>
 
@@ -356,7 +387,9 @@ export default function LandingPage() {
                   <feature.icon className="w-6 h-6 text-accent-light" />
                 </div>
                 <h3 className="text-lg font-semibold mb-2">{feature.title}</h3>
-                <p className="text-muted leading-relaxed text-sm">{feature.description}</p>
+                <p className="text-muted leading-relaxed text-sm">
+                  {feature.description}
+                </p>
               </motion.div>
             ))}
           </div>
@@ -413,7 +446,9 @@ export default function LandingPage() {
                 custom={i}
                 className="glass-card rounded-2xl p-8 flex items-start gap-6"
               >
-                <div className="text-3xl font-bold text-accent/30 font-mono">{item.step}</div>
+                <div className="text-3xl font-bold text-accent/30 font-mono">
+                  {item.step}
+                </div>
                 <div>
                   <h3 className="text-lg font-semibold mb-1">{item.title}</h3>
                   <p className="text-muted">{item.desc}</p>
@@ -439,7 +474,8 @@ export default function LandingPage() {
               Built for <span className="gradient-text">both sides.</span>
             </h2>
             <p className="text-lg text-muted max-w-xl mx-auto">
-              Whether you own the home or manage the maintenance, Upkeep is designed for you.
+              Whether you own the home or manage the maintenance, Upkeep is
+              designed for you.
             </p>
           </motion.div>
 
@@ -485,7 +521,10 @@ export default function LandingPage() {
                 <h3 className="text-2xl font-bold mb-6">{card.role}</h3>
                 <ul className="space-y-3">
                   {card.items.map((item) => (
-                    <li key={item} className="flex items-center gap-3 text-muted">
+                    <li
+                      key={item}
+                      className="flex items-center gap-3 text-muted"
+                    >
                       <Check className="w-4 h-4 text-success shrink-0" />
                       {item}
                     </li>
@@ -521,8 +560,8 @@ export default function LandingPage() {
               <span className="gradient-text">home maintenance?</span>
             </h2>
             <p className="text-lg text-muted mb-8 max-w-lg mx-auto">
-              Join the platform trusted by homeowners and maintenance professionals. Get
-              started in minutes.
+              Join the platform trusted by homeowners and maintenance
+              professionals. Get started in minutes.
             </p>
             <Link
               href="/sign-up"
