@@ -21,7 +21,7 @@ import type { Equipment, EquipmentTemplate } from "@/lib/types";
 import Image from "next/image";
 import { useSelectedJob } from "@/lib/job-context";
 import { useProfile } from "../layout";
-import { JobRequired } from "@/components/job-required";
+import { JobBadge } from "@/components/job-badge";
 
 const categories = [
   "HVAC",
@@ -229,10 +229,6 @@ export default function EquipmentPage() {
       (e.location || "").toLowerCase().includes(search.toLowerCase()),
   );
 
-  if (profile?.role === "management" && !selectedJob) {
-    return <JobRequired />;
-  }
-
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -340,7 +336,10 @@ export default function EquipmentPage() {
 
               {/* Details */}
               <div className="p-5 space-y-3">
-                <h3 className="font-semibold truncate">{item.name}</h3>
+                <div className="flex items-center justify-between gap-2">
+                  <h3 className="font-semibold truncate">{item.name}</h3>
+                  <JobBadge jobId={item.jobId} />
+                </div>
 
                 <div className="space-y-1.5 text-xs text-muted">
                   {item.manufacturer && (

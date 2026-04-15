@@ -15,7 +15,7 @@ import {
 import type { Reminder, Equipment } from "@/lib/types";
 import { useSelectedJob } from "@/lib/job-context";
 import { useProfile } from "../layout";
-import { JobRequired } from "@/components/job-required";
+import { JobBadge } from "@/components/job-badge";
 
 export default function RemindersPage() {
   const { profile } = useProfile();
@@ -143,10 +143,6 @@ export default function RemindersPage() {
     return new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime();
   });
 
-  if (profile?.role === "management" && !selectedJob) {
-    return <JobRequired />;
-  }
-
   return (
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
@@ -258,6 +254,7 @@ export default function RemindersPage() {
                         {reminder.equipmentName}
                       </span>
                     )}
+                    <JobBadge jobId={reminder.jobId} />
                   </div>
                 </div>
 

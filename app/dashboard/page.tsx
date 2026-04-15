@@ -3,7 +3,6 @@
 import { useEffect, useState } from "react";
 import { useProfile } from "./layout";
 import { useSelectedJob } from "@/lib/job-context";
-import { JobRequired } from "@/components/job-required";
 import {
   Wrench,
   Bell,
@@ -113,10 +112,6 @@ export default function DashboardPage() {
       bg: "bg-rose-400/10",
     },
   ];
-
-  if (profile?.role === "management" && !selectedJob) {
-    return <JobRequired />;
-  }
 
   return (
     <div className="space-y-8">

@@ -16,8 +16,8 @@ import {
 } from "lucide-react";
 import type { Task, Equipment, UserProfile } from "@/lib/types";
 import { useSelectedJob } from "@/lib/job-context";
-import { JobRequired } from "@/components/job-required";
 import HomeownerSearch from "@/components/homeowner-search";
+import { JobBadge } from "@/components/job-badge";
 
 const statusColors: Record<string, string> = {
   pending: "bg-white/5 text-muted",
@@ -152,10 +152,6 @@ export default function TasksPage() {
     (t) => statusFilter === "all" || t.status === statusFilter,
   );
 
-  if (profile?.role === "management" && !selectedJob) {
-    return <JobRequired />;
-  }
-
   return (
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
@@ -260,6 +256,7 @@ export default function TasksPage() {
                           {task.homeownerName}
                         </span>
                       )}
+                      <JobBadge jobId={task.jobId} />
                     </div>
                   </div>
 

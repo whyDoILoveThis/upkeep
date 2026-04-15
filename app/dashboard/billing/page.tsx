@@ -13,8 +13,9 @@ import {
 } from "lucide-react";
 import type { BillingRecord, UserProfile } from "@/lib/types";
 import { useSelectedJob } from "@/lib/job-context";
-import { JobRequired } from "@/components/job-required";
+
 import HomeownerSearch from "@/components/homeowner-search";
+import { JobBadge } from "@/components/job-badge";
 
 const statusColors: Record<string, string> = {
   pending: "bg-amber-400/10 text-amber-400",
@@ -115,10 +116,6 @@ export default function BillingPage() {
   const totalPaid = jobScoped
     .filter((b) => b.status === "paid")
     .reduce((sum, b) => sum + b.amount, 0);
-
-  if (profile?.role === "management" && !selectedJob) {
-    return <JobRequired />;
-  }
 
   return (
     <div className="space-y-6">
@@ -228,6 +225,7 @@ export default function BillingPage() {
                       Paid: {new Date(bill.paidDate).toLocaleDateString()}
                     </span>
                   )}
+                  <JobBadge jobId={bill.jobId} />
                 </div>
               </div>
 

@@ -17,7 +17,6 @@ import { HandymanTimeRing } from "@/components/handyman-time-ring";
 import type { HandymanTime, UserProfile, Job } from "@/lib/types";
 import { useDemoMode } from "@/lib/demo-context";
 import { useSelectedJob } from "@/lib/job-context";
-import { JobRequired } from "@/components/job-required";
 import { initializeApp, getApps, getApp } from "firebase/app";
 import { getDatabase, ref as dbRef, onValue, off } from "firebase/database";
 
@@ -365,10 +364,6 @@ export default function HandymanTimePage() {
         </div>
       </div>
     );
-  }
-
-  if (isManagement && !selectedJob && !demoMode) {
-    return <JobRequired />;
   }
 
   function getHomeownerName(userId: string) {

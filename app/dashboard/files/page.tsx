@@ -15,7 +15,7 @@ import {
 import type { FileRecord, Equipment } from "@/lib/types";
 import { useSelectedJob } from "@/lib/job-context";
 import { useProfile } from "../layout";
-import { JobRequired } from "@/components/job-required";
+import { JobBadge } from "@/components/job-badge";
 
 function formatFileSize(bytes: number) {
   if (bytes < 1024) return bytes + " B";
@@ -106,10 +106,6 @@ export default function FilesPage() {
   const filtered = filterEquipmentId
     ? jobScoped.filter((f) => f.equipmentId === filterEquipmentId)
     : jobScoped;
-
-  if (profile?.role === "management" && !selectedJob) {
-    return <JobRequired />;
-  }
 
   return (
     <div className="space-y-6">
@@ -203,6 +199,9 @@ export default function FilesPage() {
                     {file.equipmentName}
                   </div>
                 )}
+                <div className="mt-2">
+                  <JobBadge jobId={file.jobId} />
+                </div>
               </div>
             );
           })}
