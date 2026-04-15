@@ -1,16 +1,22 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getDb } from "@/lib/firebase-admin";
+import { getAuthUserId } from "@/lib/auth-helpers";
 
 // Seeds demo data into Firebase Realtime DB on first demo visit
 // Only writes if demo-management user doesn't exist yet
 
 export async function POST(req: NextRequest) {
   const demoRole = req.cookies.get("demo_role")?.value;
-  if (demoRole !== "homeowner" && demoRole !== "management") {
+  const userId = await getAuthUserId();
+  if (demoRole !== "homeowner" && demoRole !== "management" && !userId) {
     return NextResponse.json({ error: "Demo only" }, { status: 403 });
   }
 
   const db = getDb();
+
+  // Determine the management ID: real user or demo placeholder
+  const isDemoMode = demoRole === "homeowner" || demoRole === "management";
+  const mgmtId = isDemoMode ? "demo-management" : userId!;
 
   // Check if already seeded
   const check = await db.ref("users/demo-management").get();
@@ -21,7 +27,7 @@ export async function POST(req: NextRequest) {
   const now = Date.now();
   const DAY = 86400000;
 
-  // Users
+  // Users — always create the demo-management placeholder for detection
   await db.ref("users/demo-management").set({
     id: "demo-management",
     clerkId: "demo-management",
@@ -73,7 +79,7 @@ export async function POST(req: NextRequest) {
   // Jobs
   const jobsData: Record<string, unknown> = {
     "demo-job-1": {
-      managementId: "demo-management",
+      managementId: mgmtId,
       homeownerId: "demo-homeowner",
       homeownerName: "Alex Rivera",
       title: "Rivera Residence",
@@ -84,7 +90,7 @@ export async function POST(req: NextRequest) {
       updatedAt: now - 2 * DAY,
     },
     "demo-job-2": {
-      managementId: "demo-management",
+      managementId: mgmtId,
       homeownerId: "demo-homeowner-2",
       homeownerName: "Jordan Patel",
       title: "Patel Estate",
@@ -95,7 +101,7 @@ export async function POST(req: NextRequest) {
       updatedAt: now - 1 * DAY,
     },
     "demo-job-3": {
-      managementId: "demo-management",
+      managementId: mgmtId,
       homeownerId: "demo-homeowner-3",
       homeownerName: "Sam Nakamura",
       title: "Nakamura Home",
@@ -116,7 +122,7 @@ export async function POST(req: NextRequest) {
   const htData: Record<string, unknown> = {
     "demo-ht-1": {
       userId: "demo-homeowner",
-      managementId: "demo-management",
+      managementId: mgmtId,
       jobId: "demo-job-1",
       jobTitle: "Rivera Residence",
       startTime: new Date(qStart.getTime() + 7 * DAY + 9 * 3600000).toISOString(),
@@ -126,7 +132,7 @@ export async function POST(req: NextRequest) {
     },
     "demo-ht-2": {
       userId: "demo-homeowner",
-      managementId: "demo-management",
+      managementId: mgmtId,
       jobId: "demo-job-1",
       jobTitle: "Rivera Residence",
       startTime: new Date(qStart.getTime() + 21 * DAY + 13 * 3600000).toISOString(),
@@ -136,7 +142,7 @@ export async function POST(req: NextRequest) {
     },
     "demo-ht-3": {
       userId: "demo-homeowner-2",
-      managementId: "demo-management",
+      managementId: mgmtId,
       jobId: "demo-job-2",
       jobTitle: "Patel Estate",
       startTime: new Date(qStart.getTime() + 14 * DAY + 10 * 3600000).toISOString(),
@@ -146,7 +152,7 @@ export async function POST(req: NextRequest) {
     },
     "demo-ht-4": {
       userId: "demo-homeowner",
-      managementId: "demo-management",
+      managementId: mgmtId,
       jobId: "demo-job-1",
       jobTitle: "Rivera Residence",
       startTime: new Date(now + 5 * DAY + 9 * 3600000).toISOString(),
@@ -160,7 +166,7 @@ export async function POST(req: NextRequest) {
   // Equipment templates
   const templatesData: Record<string, unknown> = {
     "demo-tmpl-1": {
-      managementId: "demo-management",
+      managementId: mgmtId,
       name: "Central Air Conditioner",
       category: "HVAC",
       manufacturer: "Carrier",
@@ -171,7 +177,7 @@ export async function POST(req: NextRequest) {
       updatedAt: now - 90 * DAY,
     },
     "demo-tmpl-2": {
-      managementId: "demo-management",
+      managementId: mgmtId,
       name: "Tankless Water Heater",
       category: "Plumbing",
       manufacturer: "Rinnai",
@@ -182,7 +188,7 @@ export async function POST(req: NextRequest) {
       updatedAt: now - 30 * DAY,
     },
     "demo-tmpl-3": {
-      managementId: "demo-management",
+      managementId: mgmtId,
       name: "Smart Thermostat",
       category: "HVAC",
       manufacturer: "Ecobee",
@@ -355,7 +361,7 @@ export async function POST(req: NextRequest) {
     "demo-task-1": {
       homeownerId: "demo-homeowner",
       homeownerName: "Alex Rivera",
-      assignedTo: "demo-management",
+      assignedTo: mgmtId,
       assignedToName: "Apex Property Management",
       title: "Fix kitchen faucet leak",
       description: "Slow drip from kitchen sink faucet — started last week",
@@ -366,7 +372,7 @@ export async function POST(req: NextRequest) {
         "u1": {
           id: "u1",
           message: "Inspected faucet. Cartridge needs replacement — ordered parts.",
-          authorId: "demo-management",
+          authorId: mgmtId,
           authorName: "Apex Property Management",
           authorRole: "management",
           timestamp: now - 3 * DAY,
@@ -374,7 +380,7 @@ export async function POST(req: NextRequest) {
         "u2": {
           id: "u2",
           message: "Parts arrived. Will install Friday morning.",
-          authorId: "demo-management",
+          authorId: mgmtId,
           authorName: "Apex Property Management",
           authorRole: "management",
           timestamp: now - 1 * DAY,
@@ -386,7 +392,7 @@ export async function POST(req: NextRequest) {
     "demo-task-2": {
       homeownerId: "demo-homeowner",
       homeownerName: "Alex Rivera",
-      assignedTo: "demo-management",
+      assignedTo: mgmtId,
       assignedToName: "Apex Property Management",
       title: "Annual HVAC tune-up",
       description: "Scheduled seasonal maintenance for central AC",
@@ -401,7 +407,7 @@ export async function POST(req: NextRequest) {
     "demo-task-3": {
       homeownerId: "demo-homeowner-2",
       homeownerName: "Jordan Patel",
-      assignedTo: "demo-management",
+      assignedTo: mgmtId,
       assignedToName: "Apex Property Management",
       title: "Pool heater not igniting",
       description: "Pool heater clicks but doesn't fire up. May need ignitor replacement.",
@@ -422,7 +428,7 @@ export async function POST(req: NextRequest) {
         "u1": {
           id: "u1",
           message: "Replaced all weatherstripping. No more draft.",
-          authorId: "demo-management",
+          authorId: mgmtId,
           authorName: "Apex Property Management",
           authorRole: "management",
           timestamp: now - 15 * DAY,
@@ -503,7 +509,8 @@ const DEMO_KEYS: Record<string, string[]> = {
 
 export async function DELETE(req: NextRequest) {
   const demoRole = req.cookies.get("demo_role")?.value;
-  if (demoRole !== "homeowner" && demoRole !== "management") {
+  const userId = await getAuthUserId();
+  if (demoRole !== "homeowner" && demoRole !== "management" && !userId) {
     return NextResponse.json({ error: "Demo only" }, { status: 403 });
   }
 
@@ -523,7 +530,8 @@ export async function DELETE(req: NextRequest) {
 
 export async function GET(req: NextRequest) {
   const demoRole = req.cookies.get("demo_role")?.value;
-  if (demoRole !== "homeowner" && demoRole !== "management") {
+  const userId = await getAuthUserId();
+  if (demoRole !== "homeowner" && demoRole !== "management" && !userId) {
     return NextResponse.json({ error: "Demo only" }, { status: 403 });
   }
 
