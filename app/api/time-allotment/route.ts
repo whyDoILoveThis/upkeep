@@ -47,10 +47,10 @@ export async function POST(req: NextRequest) {
   }
 
   const body = await req.json();
-  const { userId: targetUserId, startTime, endTime, notes } = body;
+  const { userId: targetUserId, jobId, startTime, endTime, notes } = body;
 
-  if (!targetUserId || !startTime || !endTime) {
-    return NextResponse.json({ error: "userId, startTime, and endTime are required" }, { status: 400 });
+  if (!targetUserId || !jobId || !startTime || !endTime) {
+    return NextResponse.json({ error: "userId, jobId, startTime, and endTime are required" }, { status: 400 });
   }
 
   const start = new Date(startTime);
@@ -59,10 +59,17 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Invalid time range" }, { status: 400 });
   }
 
+  // Look up job title
+  let jobTitle: string | null = null;
+  const jobSnap = await db.ref(`jobs/${jobId}`).get();
+  if (jobSnap.exists()) jobTitle = jobSnap.val().title || null;
+
   const ref = db.ref("handymanTime").push();
   const entry: Omit<HandymanTime, "id"> = {
     userId: targetUserId,
     managementId: userId,
+    jobId,
+    jobTitle: jobTitle || undefined,
     startTime: start.toISOString(),
     endTime: end.toISOString(),
     notes: notes || null,

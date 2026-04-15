@@ -117,22 +117,28 @@ export async function POST(req: NextRequest) {
     "demo-ht-1": {
       userId: "demo-homeowner",
       managementId: "demo-management",
-      startTime: new Date(qStart.getTime() + 7 * DAY + 9 * 3600000).toISOString(), // 9am, 7 days into quarter
-      endTime: new Date(qStart.getTime() + 7 * DAY + 11 * 3600000).toISOString(),   // 11am
+      jobId: "demo-job-1",
+      jobTitle: "Rivera Residence",
+      startTime: new Date(qStart.getTime() + 7 * DAY + 9 * 3600000).toISOString(),
+      endTime: new Date(qStart.getTime() + 7 * DAY + 11 * 3600000).toISOString(),
       notes: "HVAC filter replacement and inspection",
       createdAt: now - 30 * DAY,
     },
     "demo-ht-2": {
       userId: "demo-homeowner",
       managementId: "demo-management",
-      startTime: new Date(qStart.getTime() + 21 * DAY + 13 * 3600000).toISOString(), // 1pm
-      endTime: new Date(qStart.getTime() + 21 * DAY + 15 * 3600000).toISOString(),   // 3pm
+      jobId: "demo-job-1",
+      jobTitle: "Rivera Residence",
+      startTime: new Date(qStart.getTime() + 21 * DAY + 13 * 3600000).toISOString(),
+      endTime: new Date(qStart.getTime() + 21 * DAY + 15 * 3600000).toISOString(),
       notes: "Fix kitchen faucet leak",
       createdAt: now - 20 * DAY,
     },
     "demo-ht-3": {
       userId: "demo-homeowner-2",
       managementId: "demo-management",
+      jobId: "demo-job-2",
+      jobTitle: "Patel Estate",
       startTime: new Date(qStart.getTime() + 14 * DAY + 10 * 3600000).toISOString(),
       endTime: new Date(qStart.getTime() + 14 * DAY + 14 * 3600000).toISOString(),
       notes: "Pool pump maintenance and deck repair",
@@ -141,6 +147,8 @@ export async function POST(req: NextRequest) {
     "demo-ht-4": {
       userId: "demo-homeowner",
       managementId: "demo-management",
+      jobId: "demo-job-1",
+      jobTitle: "Rivera Residence",
       startTime: new Date(now + 5 * DAY + 9 * 3600000).toISOString(),
       endTime: new Date(now + 5 * DAY + 12 * 3600000).toISOString(),
       notes: "Gutter cleaning and downspout inspection",
@@ -479,4 +487,47 @@ export async function POST(req: NextRequest) {
   await db.ref("billing").update(billingData);
 
   return NextResponse.json({ seeded: true });
+}
+
+// All demo key prefixes used across the RTDB
+const DEMO_KEYS: Record<string, string[]> = {
+  users: ["demo-management", "demo-homeowner", "demo-homeowner-2", "demo-homeowner-3"],
+  jobs: ["demo-job-1", "demo-job-2", "demo-job-3"],
+  handymanTime: ["demo-ht-1", "demo-ht-2", "demo-ht-3", "demo-ht-4"],
+  equipmentTemplates: ["demo-tmpl-1", "demo-tmpl-2", "demo-tmpl-3"],
+  equipment: ["demo-eq-1", "demo-eq-2", "demo-eq-3", "demo-eq-4", "demo-eq-5", "demo-eq-6"],
+  reminders: ["demo-rem-1", "demo-rem-2", "demo-rem-3", "demo-rem-4", "demo-rem-5", "demo-rem-6"],
+  tasks: ["demo-task-1", "demo-task-2", "demo-task-3", "demo-task-4"],
+  billing: ["demo-bill-1", "demo-bill-2", "demo-bill-3", "demo-bill-4", "demo-bill-5"],
+};
+
+export async function DELETE(req: NextRequest) {
+  const demoRole = req.cookies.get("demo_role")?.value;
+  if (demoRole !== "homeowner" && demoRole !== "management") {
+    return NextResponse.json({ error: "Demo only" }, { status: 403 });
+  }
+
+  const db = getDb();
+
+  const removes: Promise<void>[] = [];
+  for (const [collection, keys] of Object.entries(DEMO_KEYS)) {
+    for (const key of keys) {
+      removes.push(db.ref(`${collection}/${key}`).remove());
+    }
+  }
+
+  await Promise.all(removes);
+
+  return NextResponse.json({ cleared: true });
+}
+
+export async function GET(req: NextRequest) {
+  const demoRole = req.cookies.get("demo_role")?.value;
+  if (demoRole !== "homeowner" && demoRole !== "management") {
+    return NextResponse.json({ error: "Demo only" }, { status: 403 });
+  }
+
+  const db = getDb();
+  const check = await db.ref("users/demo-management").get();
+  return NextResponse.json({ loaded: check.exists() });
 }

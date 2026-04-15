@@ -106,6 +106,8 @@ export interface HandymanTime {
   id: string;
   userId: string;
   managementId: string;
+  jobId: string;
+  jobTitle?: string;
   startTime: string; // ISO datetime
   endTime: string;   // ISO datetime
   notes?: string;

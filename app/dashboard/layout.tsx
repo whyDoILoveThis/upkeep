@@ -20,6 +20,7 @@ import {
   Eye,
   Briefcase,
   Layers,
+  Settings,
 } from "lucide-react";
 import type { UserProfile } from "@/lib/types";
 import { DemoProvider, useDemoMode } from "@/lib/demo-context";
@@ -53,6 +54,7 @@ const navItems = [
   { href: "/dashboard/tasks", icon: ClipboardList, label: "Tasks" },
   { href: "/dashboard/billing", icon: Receipt, label: "Billing" },
   { href: "/dashboard/time", icon: Timer, label: "Handyman Time" },
+  { href: "/dashboard/settings", icon: Settings, label: "Settings" },
 ];
 
 function getDemoRoleFromCookie(): UserRole | null {

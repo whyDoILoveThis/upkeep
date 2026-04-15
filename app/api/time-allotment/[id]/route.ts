@@ -27,6 +27,7 @@ export async function PATCH(req: NextRequest, { params }: RouteParams) {
   if (body.startTime) updates.startTime = body.startTime;
   if (body.endTime) updates.endTime = body.endTime;
   if (body.userId) updates.userId = body.userId;
+  if (body.jobId) updates.jobId = body.jobId;
   if (body.notes !== undefined) updates.notes = body.notes || null;
 
   if (updates.startTime && updates.endTime) {

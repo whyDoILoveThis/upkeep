@@ -56,7 +56,32 @@ function wrapRef(r: DatabaseReference): WrappedRef {
     key: r.key,
     orderByChild: (child: string) => ({
       equalTo: (value: string | number | boolean | null) => ({
-        get: () => get(query(r, orderByChild(child), equalTo(value))),
+        get: async () => {
+          // Fetch all then filter in memory to avoid needing .indexOn rules
+          const snapshot = await get(r);
+          if (!snapshot.exists()) return snapshot;
+
+          const all = snapshot.val() as Record<
+            string,
+            Record<string, unknown>
+          >;
+          const filtered: Record<string, unknown> = {};
+          for (const [key, item] of Object.entries(all)) {
+            if (
+              item &&
+              typeof item === "object" &&
+              (item as Record<string, unknown>)[child] === value
+            ) {
+              filtered[key] = item;
+            }
+          }
+
+          const hasResults = Object.keys(filtered).length > 0;
+          return {
+            exists: () => hasResults,
+            val: () => (hasResults ? filtered : null),
+          } as DataSnapshot;
+        },
       }),
     }),
   };

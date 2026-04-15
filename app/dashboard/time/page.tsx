@@ -11,9 +11,10 @@ import {
   Clock,
   User,
   Pencil,
+  Briefcase,
 } from "lucide-react";
 import { HandymanTimeRing } from "@/components/handyman-time-ring";
-import type { HandymanTime, UserProfile } from "@/lib/types";
+import type { HandymanTime, UserProfile, Job } from "@/lib/types";
 import { useDemoMode } from "@/lib/demo-context";
 import { useSelectedJob } from "@/lib/job-context";
 import { JobRequired } from "@/components/job-required";
@@ -48,12 +49,125 @@ function minutesBetween(a: string, b: string) {
   );
 }
 
+function EntryCard({
+  entry,
+  isManagement,
+  showJob,
+  getHomeownerName,
+  onEdit,
+  onDelete,
+}: {
+  entry: HandymanTime;
+  isManagement: boolean;
+  showJob: boolean;
+  getHomeownerName: (id: string) => string;
+  onEdit: (entry: HandymanTime) => void;
+  onDelete: (id: string) => void;
+}) {
+  const start = new Date(entry.startTime);
+  const end = new Date(entry.endTime);
+  const duration = minutesBetween(entry.startTime, entry.endTime);
+  const isPast = end <= new Date();
+  const isActive = start <= new Date() && end > new Date();
+
+  return (
+    <div
+      className={`glass-card rounded-xl p-4 flex items-center gap-4 ${
+        isPast ? "opacity-60" : isActive ? "ring-2 ring-accent/40" : ""
+      }`}
+    >
+      <div
+        className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${
+          isPast ? "bg-white/5" : isActive ? "bg-accent/20" : "bg-accent/10"
+        }`}
+      >
+        <Clock
+          className={`w-5 h-5 ${isPast ? "text-muted" : "text-accent-light"}`}
+        />
+      </div>
+
+      <div className="flex-1 min-w-0">
+        <div className="flex items-center gap-2 flex-wrap">
+          <span className="text-sm font-medium">
+            {start.toLocaleDateString("en-US", {
+              weekday: "short",
+              month: "short",
+              day: "numeric",
+            })}
+          </span>
+          <span className="text-xs text-muted">
+            {start.toLocaleTimeString("en-US", {
+              hour: "numeric",
+              minute: "2-digit",
+            })}
+            {" – "}
+            {end.toLocaleTimeString("en-US", {
+              hour: "numeric",
+              minute: "2-digit",
+            })}
+          </span>
+          <span className="text-xs px-2 py-0.5 rounded-full bg-accent/10 text-accent-light font-medium">
+            {Math.floor(duration / 60)}h {duration % 60}m
+          </span>
+          {isPast && (
+            <span className="text-xs px-2 py-0.5 rounded-full bg-white/5 text-muted font-medium">
+              Completed
+            </span>
+          )}
+          {isActive && (
+            <span className="text-xs px-2 py-0.5 rounded-full bg-success/10 text-success font-medium">
+              In Progress
+            </span>
+          )}
+        </div>
+        <div className="flex items-center gap-3 mt-0.5 flex-wrap">
+          {showJob && entry.jobTitle && (
+            <p className="text-xs text-accent-light/70 flex items-center gap-1">
+              <Briefcase className="w-3 h-3" />
+              {entry.jobTitle}
+            </p>
+          )}
+          {isManagement && (
+            <p className="text-xs text-muted flex items-center gap-1">
+              <User className="w-3 h-3" />
+              {getHomeownerName(entry.userId)}
+            </p>
+          )}
+        </div>
+        {entry.notes && (
+          <p className="text-xs text-muted/70 mt-1 truncate">{entry.notes}</p>
+        )}
+      </div>
+
+      {isManagement && (
+        <div className="flex items-center gap-1 shrink-0">
+          <button
+            onClick={() => onEdit(entry)}
+            className="p-2 rounded-lg hover:bg-accent/20 transition-colors"
+            title="Edit"
+          >
+            <Pencil className="w-4 h-4 text-muted hover:text-accent-light" />
+          </button>
+          <button
+            onClick={() => onDelete(entry.id)}
+            className="p-2 rounded-lg hover:bg-red-500/20 transition-colors"
+            title="Remove"
+          >
+            <Trash2 className="w-4 h-4 text-muted hover:text-red-400" />
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function HandymanTimePage() {
   const { profile } = useProfile();
   const { demoMode, demoRole } = useDemoMode();
   const { selectedJob } = useSelectedJob();
   const [entries, setEntries] = useState<HandymanTime[]>([]);
   const [homeowners, setHomeowners] = useState<UserProfile[]>([]);
+  const [jobs, setJobs] = useState<Job[]>([]);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -65,6 +179,7 @@ export default function HandymanTimePage() {
 
   const [form, setForm] = useState({
     userId: "",
+    jobId: "",
     startDate: "",
     startTimeVal: "",
     endDate: "",
@@ -90,7 +205,6 @@ export default function HandymanTimePage() {
         snapshot.val() as Record<string, Omit<HandymanTime, "id">>,
       ).map(([id, data]) => ({ id, ...data }));
 
-      // Filter based on role
       let filtered: HandymanTime[];
       if (demoMode) {
         const role = demoRole;
@@ -122,41 +236,53 @@ export default function HandymanTimePage() {
     };
   }, [profile, demoMode, demoRole]);
 
-  // Fetch homeowners for management
+  // Fetch homeowners and jobs for management
   useEffect(() => {
     if (!isManagement) return;
-    fetch("/api/users/homeowners")
-      .then((res) => (res.ok ? res.json() : []))
-      .then(setHomeowners)
-      .catch(() => {});
+    Promise.all([
+      fetch("/api/users/homeowners").then((r) => (r.ok ? r.json() : [])),
+      fetch("/api/jobs").then((r) => (r.ok ? r.json() : [])),
+    ]).then(([hw, j]) => {
+      setHomeowners(hw);
+      setJobs(j);
+    });
   }, [isManagement]);
 
-  // Filter to selected job
-  const scopedEntries =
-    isManagement && selectedJob
-      ? entries.filter((e) => e.userId === selectedJob.homeownerId)
-      : entries;
+  // Split entries: selected job vs rest
+  const jobEntries = selectedJob
+    ? entries.filter((e) => e.jobId === selectedJob.id)
+    : entries;
+
+  const otherEntries = selectedJob
+    ? entries.filter((e) => e.jobId !== selectedJob.id)
+    : [];
 
   const { quarterStart, quarterEnd } = getQuarterDates();
-  const quarterEntries = scopedEntries.filter((e) => {
-    const s = new Date(e.startTime);
-    return s >= new Date(quarterStart) && s <= new Date(quarterEnd);
-  });
 
-  const totalMinutes = quarterEntries.reduce(
-    (sum, e) => sum + minutesBetween(e.startTime, e.endTime),
-    0,
-  );
-  const pastMinutes = quarterEntries.reduce((sum, e) => {
-    if (new Date(e.endTime) <= new Date()) {
-      return sum + minutesBetween(e.startTime, e.endTime);
-    }
-    return sum;
-  }, 0);
+  function quarterMinutes(list: HandymanTime[]) {
+    const qe = list.filter((e) => {
+      const s = new Date(e.startTime);
+      return s >= new Date(quarterStart) && s <= new Date(quarterEnd);
+    });
+    const total = qe.reduce(
+      (sum, e) => sum + minutesBetween(e.startTime, e.endTime),
+      0,
+    );
+    const completed = qe.reduce((sum, e) => {
+      if (new Date(e.endTime) <= new Date()) {
+        return sum + minutesBetween(e.startTime, e.endTime);
+      }
+      return sum;
+    }, 0);
+    return { total, completed };
+  }
+
+  const jobStats = quarterMinutes(jobEntries);
 
   function resetForm() {
     setForm({
       userId: "",
+      jobId: "",
       startDate: "",
       startTimeVal: "",
       endDate: "",
@@ -171,6 +297,7 @@ export default function HandymanTimePage() {
     const end = new Date(entry.endTime);
     setForm({
       userId: entry.userId,
+      jobId: entry.jobId || "",
       startDate: start.toISOString().slice(0, 10),
       startTimeVal: start.toTimeString().slice(0, 5),
       endDate: end.toISOString().slice(0, 10),
@@ -191,6 +318,7 @@ export default function HandymanTimePage() {
     ).toISOString();
 
     const targetUserId = isManagement ? form.userId : profile?.id || "";
+    const targetJobId = form.jobId;
 
     setSaving(true);
     try {
@@ -203,6 +331,7 @@ export default function HandymanTimePage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           userId: targetUserId,
+          jobId: targetJobId,
           startTime,
           endTime,
           notes: form.notes || null,
@@ -242,12 +371,22 @@ export default function HandymanTimePage() {
     return <JobRequired />;
   }
 
-  const scopedHomeowners = selectedJob
-    ? homeowners.filter((h) => h.id === selectedJob.homeownerId)
-    : homeowners;
-
   function getHomeownerName(userId: string) {
     return homeowners.find((h) => h.id === userId)?.name || userId;
+  }
+
+  // Jobs for the form — when a job is selected, default to that job
+  const formJobs = selectedJob
+    ? jobs.filter((j) => j.id === selectedJob.id)
+    : jobs;
+
+  function handleJobChange(jobId: string) {
+    const job = jobs.find((j) => j.id === jobId);
+    setForm((f) => ({
+      ...f,
+      jobId,
+      userId: job?.homeownerId || f.userId,
+    }));
   }
 
   return (
@@ -261,7 +400,9 @@ export default function HandymanTimePage() {
           </h1>
           <p className="text-muted text-sm mt-1">
             {isManagement
-              ? "Schedule and track handyman time for homeowners."
+              ? selectedJob
+                ? `Time entries for ${selectedJob.title}`
+                : "Schedule and track handyman time across all jobs."
               : "Your scheduled handyman time this quarter."}
           </p>
         </div>
@@ -269,8 +410,13 @@ export default function HandymanTimePage() {
           <button
             onClick={() => {
               resetForm();
-              if (selectedJob)
-                setForm((f) => ({ ...f, userId: selectedJob.homeownerId }));
+              if (selectedJob) {
+                setForm((f) => ({
+                  ...f,
+                  jobId: selectedJob.id,
+                  userId: selectedJob.homeownerId,
+                }));
+              }
               setShowModal(true);
             }}
             className="btn-primary flex items-center gap-2 text-sm"
@@ -281,136 +427,93 @@ export default function HandymanTimePage() {
         )}
       </div>
 
-      {/* Quarterly Ring */}
+      {/* Quarterly Ring — scoped to selected job */}
       <div className="max-w-md mx-auto">
         <div className="glass-card rounded-2xl p-8">
+          {selectedJob && (
+            <p className="text-xs text-center text-muted mb-4 flex items-center justify-center gap-1.5">
+              <Briefcase className="w-3.5 h-3.5" />
+              {selectedJob.title} — This Quarter
+            </p>
+          )}
           <HandymanTimeRing
-            scheduledMinutes={totalMinutes}
-            completedMinutes={pastMinutes}
+            scheduledMinutes={jobStats.total}
+            completedMinutes={jobStats.completed}
             quarterStart={quarterStart}
             quarterEnd={quarterEnd}
           />
         </div>
       </div>
 
-      {/* Entries List */}
+      {/* Selected Job Entries */}
       <div>
-        <h2 className="text-lg font-semibold mb-4">Scheduled Entries</h2>
-        {scopedEntries.length === 0 ? (
+        <h2 className="text-lg font-semibold mb-4 flex items-center gap-2">
+          {selectedJob ? (
+            <>
+              <Briefcase className="w-4.5 h-4.5 text-accent-light" />
+              {selectedJob.title}
+            </>
+          ) : (
+            "All Entries"
+          )}
+          <span className="text-sm font-normal text-muted ml-1">
+            ({jobEntries.length})
+          </span>
+        </h2>
+        {jobEntries.length === 0 ? (
           <div className="glass-card rounded-2xl p-12 text-center">
             <Hammer className="w-12 h-12 text-muted/30 mx-auto mb-4" />
             <h3 className="text-lg font-medium mb-1">No time scheduled</h3>
             <p className="text-muted text-sm">
               {isManagement
-                ? "Schedule handyman time for this homeowner."
+                ? selectedJob
+                  ? `No handyman time scheduled for ${selectedJob.title}.`
+                  : "Schedule handyman time for a job."
                 : "No handyman time has been scheduled yet."}
             </p>
           </div>
         ) : (
           <div className="space-y-3">
-            {scopedEntries.map((entry) => {
-              const start = new Date(entry.startTime);
-              const end = new Date(entry.endTime);
-              const duration = minutesBetween(entry.startTime, entry.endTime);
-              const isPast = end <= new Date();
-              const isActive = start <= new Date() && end > new Date();
-
-              return (
-                <div
-                  key={entry.id}
-                  className={`glass-card rounded-xl p-4 flex items-center gap-4 ${
-                    isPast
-                      ? "opacity-60"
-                      : isActive
-                        ? "ring-2 ring-accent/40"
-                        : ""
-                  }`}
-                >
-                  <div
-                    className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${
-                      isPast
-                        ? "bg-white/5"
-                        : isActive
-                          ? "bg-accent/20"
-                          : "bg-accent/10"
-                    }`}
-                  >
-                    <Clock
-                      className={`w-5 h-5 ${isPast ? "text-muted" : "text-accent-light"}`}
-                    />
-                  </div>
-
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <span className="text-sm font-medium">
-                        {start.toLocaleDateString("en-US", {
-                          weekday: "short",
-                          month: "short",
-                          day: "numeric",
-                        })}
-                      </span>
-                      <span className="text-xs text-muted">
-                        {start.toLocaleTimeString("en-US", {
-                          hour: "numeric",
-                          minute: "2-digit",
-                        })}
-                        {" – "}
-                        {end.toLocaleTimeString("en-US", {
-                          hour: "numeric",
-                          minute: "2-digit",
-                        })}
-                      </span>
-                      <span className="text-xs px-2 py-0.5 rounded-full bg-accent/10 text-accent-light font-medium">
-                        {Math.floor(duration / 60)}h {duration % 60}m
-                      </span>
-                      {isPast && (
-                        <span className="text-xs px-2 py-0.5 rounded-full bg-white/5 text-muted font-medium">
-                          Completed
-                        </span>
-                      )}
-                      {isActive && (
-                        <span className="text-xs px-2 py-0.5 rounded-full bg-success/10 text-success font-medium">
-                          In Progress
-                        </span>
-                      )}
-                    </div>
-                    {isManagement && (
-                      <p className="text-xs text-muted mt-0.5 flex items-center gap-1">
-                        <User className="w-3 h-3" />
-                        {getHomeownerName(entry.userId)}
-                      </p>
-                    )}
-                    {entry.notes && (
-                      <p className="text-xs text-muted/70 mt-1 truncate">
-                        {entry.notes}
-                      </p>
-                    )}
-                  </div>
-
-                  {isManagement && (
-                    <div className="flex items-center gap-1 shrink-0">
-                      <button
-                        onClick={() => openEdit(entry)}
-                        className="p-2 rounded-lg hover:bg-accent/20 transition-colors"
-                        title="Edit"
-                      >
-                        <Pencil className="w-4 h-4 text-muted hover:text-accent-light" />
-                      </button>
-                      <button
-                        onClick={() => handleDelete(entry.id)}
-                        className="p-2 rounded-lg hover:bg-red-500/20 transition-colors"
-                        title="Remove"
-                      >
-                        <Trash2 className="w-4 h-4 text-muted hover:text-red-400" />
-                      </button>
-                    </div>
-                  )}
-                </div>
-              );
-            })}
+            {jobEntries.map((entry) => (
+              <EntryCard
+                key={entry.id}
+                entry={entry}
+                isManagement={isManagement}
+                showJob={!selectedJob}
+                getHomeownerName={getHomeownerName}
+                onEdit={openEdit}
+                onDelete={handleDelete}
+              />
+            ))}
           </div>
         )}
       </div>
+
+      {/* Other Entries (only when a job is selected) */}
+      {selectedJob && otherEntries.length > 0 && (
+        <div>
+          <div className="flex items-center gap-3 mb-4">
+            <div className="flex-1 h-px bg-white/10" />
+            <h2 className="text-sm font-medium text-muted">
+              Other Jobs ({otherEntries.length})
+            </h2>
+            <div className="flex-1 h-px bg-white/10" />
+          </div>
+          <div className="space-y-3 opacity-70">
+            {otherEntries.map((entry) => (
+              <EntryCard
+                key={entry.id}
+                entry={entry}
+                isManagement={isManagement}
+                showJob={true}
+                getHomeownerName={getHomeownerName}
+                onEdit={openEdit}
+                onDelete={handleDelete}
+              />
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Schedule Modal */}
       {showModal && (
@@ -419,7 +522,7 @@ export default function HandymanTimePage() {
             className="absolute inset-0 bg-black/70 backdrop-blur-sm"
             onClick={() => setShowModal(false)}
           />
-          <div className="relative glass-strong rounded-2xl w-full max-w-md p-6">
+          <div className="relative glass-strong rounded-2xl w-full max-w-md p-6 max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between mb-6">
               <h2 className="text-lg font-semibold">
                 {editingId ? "Edit Handyman Time" : "Schedule Handyman Time"}
@@ -433,23 +536,23 @@ export default function HandymanTimePage() {
             </div>
 
             <form onSubmit={handleSubmit} className="space-y-4">
-              {isManagement && !selectedJob && (
+              {/* Job selector */}
+              {isManagement && (
                 <div>
                   <label className="block text-sm font-medium mb-1.5">
-                    Homeowner *
+                    Job *
                   </label>
                   <select
-                    value={form.userId}
-                    onChange={(e) =>
-                      setForm({ ...form, userId: e.target.value })
-                    }
+                    value={form.jobId}
+                    onChange={(e) => handleJobChange(e.target.value)}
                     required
                     className="glass-input w-full rounded-xl px-4 py-2.5 text-sm"
                   >
-                    <option value="">Select homeowner</option>
-                    {scopedHomeowners.map((h) => (
-                      <option key={h.id} value={h.id} className="bg-[#0f172a]">
-                        {h.name}
+                    <option value="">Select job</option>
+                    {formJobs.map((j) => (
+                      <option key={j.id} value={j.id} className="bg-[#0f172a]">
+                        {j.title}
+                        {j.homeownerName ? ` — ${j.homeownerName}` : ""}
                       </option>
                     ))}
                   </select>
