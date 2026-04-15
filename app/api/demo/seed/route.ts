@@ -2,8 +2,30 @@ import { NextRequest, NextResponse } from "next/server";
 import { getDb } from "@/lib/firebase-admin";
 import { getAuthUserId } from "@/lib/auth-helpers";
 
-// Seeds demo data into Firebase Realtime DB on first demo visit
-// Only writes if demo-management user doesn't exist yet
+// Seeds demo data into Firebase Realtime DB, scoped per user.
+// Anonymous demo users share "demo" prefix; real users get "{userId}-demo" prefix.
+
+function resolveContext(demoRole: string | undefined, userId: string | null) {
+  const isDemoMode = demoRole === "homeowner" || demoRole === "management";
+  // Prefix for all generated record keys — isolates each user's demo data
+  const p = isDemoMode ? "demo" : `${userId}-demo`;
+  const mgmtId = isDemoMode ? `${p}-management` : userId!;
+  return { isDemoMode, p, mgmtId };
+}
+
+/** Build the full set of demo keys for a given prefix so DELETE can clean up */
+function getDemoKeys(p: string): Record<string, string[]> {
+  return {
+    users: [`${p}-management`, `${p}-homeowner`, `${p}-homeowner-2`, `${p}-homeowner-3`],
+    jobs: [`${p}-job-1`, `${p}-job-2`, `${p}-job-3`],
+    handymanTime: [`${p}-ht-1`, `${p}-ht-2`, `${p}-ht-3`, `${p}-ht-4`],
+    equipmentTemplates: [`${p}-tmpl-1`, `${p}-tmpl-2`, `${p}-tmpl-3`],
+    equipment: [`${p}-eq-1`, `${p}-eq-2`, `${p}-eq-3`, `${p}-eq-4`, `${p}-eq-5`, `${p}-eq-6`],
+    reminders: [`${p}-rem-1`, `${p}-rem-2`, `${p}-rem-3`, `${p}-rem-4`, `${p}-rem-5`, `${p}-rem-6`],
+    tasks: [`${p}-task-1`, `${p}-task-2`, `${p}-task-3`, `${p}-task-4`],
+    billing: [`${p}-bill-1`, `${p}-bill-2`, `${p}-bill-3`, `${p}-bill-4`, `${p}-bill-5`],
+  };
+}
 
 export async function POST(req: NextRequest) {
   const demoRole = req.cookies.get("demo_role")?.value;
@@ -13,13 +35,25 @@ export async function POST(req: NextRequest) {
   }
 
   const db = getDb();
+  const { isDemoMode, p, mgmtId } = resolveContext(demoRole, userId);
 
-  // Determine the management ID: real user or demo placeholder
-  const isDemoMode = demoRole === "homeowner" || demoRole === "management";
-  const mgmtId = isDemoMode ? "demo-management" : userId!;
+  // Scoped IDs
+  const hw1 = `${p}-homeowner`;
+  const hw2 = `${p}-homeowner-2`;
+  const hw3 = `${p}-homeowner-3`;
+  const mgmtKey = `${p}-management`;
+  const job1 = `${p}-job-1`;
+  const job2 = `${p}-job-2`;
+  const job3 = `${p}-job-3`;
+  const eq1 = `${p}-eq-1`;
+  const eq2 = `${p}-eq-2`;
+  const eq3 = `${p}-eq-3`;
+  const eq4 = `${p}-eq-4`;
+  const eq5 = `${p}-eq-5`;
+  const eq6 = `${p}-eq-6`;
 
-  // Check if already seeded
-  const check = await db.ref("users/demo-management").get();
+  // Check if already seeded for this user
+  const check = await db.ref(`users/${p}-homeowner`).get();
   if (check.exists()) {
     return NextResponse.json({ seeded: false, message: "Already seeded" });
   }
@@ -27,22 +61,24 @@ export async function POST(req: NextRequest) {
   const now = Date.now();
   const DAY = 86400000;
 
-  // Users — always create the demo-management placeholder for detection
-  await db.ref("users/demo-management").set({
-    id: "demo-management",
-    clerkId: "demo-management",
-    role: "management",
-    name: "Apex Property Management",
-    email: "demo@apex-mgmt.com",
-    phone: "555-100-0000",
-    address: "",
-    company: "Apex Property Management",
-    createdAt: now - 120 * DAY,
-  });
+  // Users — management placeholder (only for anonymous demo), plus scoped homeowners
+  if (isDemoMode) {
+    await db.ref(`users/${mgmtKey}`).set({
+      id: mgmtKey,
+      clerkId: mgmtKey,
+      role: "management",
+      name: "Apex Property Management",
+      email: "demo@apex-mgmt.com",
+      phone: "555-100-0000",
+      address: "",
+      company: "Apex Property Management",
+      createdAt: now - 120 * DAY,
+    });
+  }
 
-  await db.ref("users/demo-homeowner").set({
-    id: "demo-homeowner",
-    clerkId: "demo-homeowner",
+  await db.ref(`users/${hw1}`).set({
+    id: hw1,
+    clerkId: hw1,
     role: "homeowner",
     name: "Alex Rivera",
     email: "alex@example.com",
@@ -52,9 +88,9 @@ export async function POST(req: NextRequest) {
     createdAt: now - 100 * DAY,
   });
 
-  await db.ref("users/demo-homeowner-2").set({
-    id: "demo-homeowner-2",
-    clerkId: "demo-homeowner-2",
+  await db.ref(`users/${hw2}`).set({
+    id: hw2,
+    clerkId: hw2,
     role: "homeowner",
     name: "Jordan Patel",
     email: "jordan@example.com",
@@ -64,9 +100,9 @@ export async function POST(req: NextRequest) {
     createdAt: now - 90 * DAY,
   });
 
-  await db.ref("users/demo-homeowner-3").set({
-    id: "demo-homeowner-3",
-    clerkId: "demo-homeowner-3",
+  await db.ref(`users/${hw3}`).set({
+    id: hw3,
+    clerkId: hw3,
     role: "homeowner",
     name: "Sam Nakamura",
     email: "sam@example.com",
@@ -78,9 +114,9 @@ export async function POST(req: NextRequest) {
 
   // Jobs
   const jobsData: Record<string, unknown> = {
-    "demo-job-1": {
+    [job1]: {
       managementId: mgmtId,
-      homeownerId: "demo-homeowner",
+      homeownerId: hw1,
       homeownerName: "Alex Rivera",
       title: "Rivera Residence",
       address: "742 Evergreen Terrace, Springfield",
@@ -89,9 +125,9 @@ export async function POST(req: NextRequest) {
       createdAt: now - 80 * DAY,
       updatedAt: now - 2 * DAY,
     },
-    "demo-job-2": {
+    [job2]: {
       managementId: mgmtId,
-      homeownerId: "demo-homeowner-2",
+      homeownerId: hw2,
       homeownerName: "Jordan Patel",
       title: "Patel Estate",
       address: "1600 Pennsylvania Ave, Metro City",
@@ -100,9 +136,9 @@ export async function POST(req: NextRequest) {
       createdAt: now - 55 * DAY,
       updatedAt: now - 1 * DAY,
     },
-    "demo-job-3": {
+    [job3]: {
       managementId: mgmtId,
-      homeownerId: "demo-homeowner-3",
+      homeownerId: hw3,
       homeownerName: "Sam Nakamura",
       title: "Nakamura Home",
       address: "221B Baker St, Watertown",
@@ -120,40 +156,40 @@ export async function POST(req: NextRequest) {
   const qStart = new Date(qNow.getFullYear(), quarter * 3, 1);
 
   const htData: Record<string, unknown> = {
-    "demo-ht-1": {
-      userId: "demo-homeowner",
+    [`${p}-ht-1`]: {
+      userId: hw1,
       managementId: mgmtId,
-      jobId: "demo-job-1",
+      jobId: job1,
       jobTitle: "Rivera Residence",
       startTime: new Date(qStart.getTime() + 7 * DAY + 9 * 3600000).toISOString(),
       endTime: new Date(qStart.getTime() + 7 * DAY + 11 * 3600000).toISOString(),
       notes: "HVAC filter replacement and inspection",
       createdAt: now - 30 * DAY,
     },
-    "demo-ht-2": {
-      userId: "demo-homeowner",
+    [`${p}-ht-2`]: {
+      userId: hw1,
       managementId: mgmtId,
-      jobId: "demo-job-1",
+      jobId: job1,
       jobTitle: "Rivera Residence",
       startTime: new Date(qStart.getTime() + 21 * DAY + 13 * 3600000).toISOString(),
       endTime: new Date(qStart.getTime() + 21 * DAY + 15 * 3600000).toISOString(),
       notes: "Fix kitchen faucet leak",
       createdAt: now - 20 * DAY,
     },
-    "demo-ht-3": {
-      userId: "demo-homeowner-2",
+    [`${p}-ht-3`]: {
+      userId: hw2,
       managementId: mgmtId,
-      jobId: "demo-job-2",
+      jobId: job2,
       jobTitle: "Patel Estate",
       startTime: new Date(qStart.getTime() + 14 * DAY + 10 * 3600000).toISOString(),
       endTime: new Date(qStart.getTime() + 14 * DAY + 14 * 3600000).toISOString(),
       notes: "Pool pump maintenance and deck repair",
       createdAt: now - 15 * DAY,
     },
-    "demo-ht-4": {
-      userId: "demo-homeowner",
+    [`${p}-ht-4`]: {
+      userId: hw1,
       managementId: mgmtId,
-      jobId: "demo-job-1",
+      jobId: job1,
       jobTitle: "Rivera Residence",
       startTime: new Date(now + 5 * DAY + 9 * 3600000).toISOString(),
       endTime: new Date(now + 5 * DAY + 12 * 3600000).toISOString(),
@@ -165,7 +201,7 @@ export async function POST(req: NextRequest) {
 
   // Equipment templates
   const templatesData: Record<string, unknown> = {
-    "demo-tmpl-1": {
+    [`${p}-tmpl-1`]: {
       managementId: mgmtId,
       name: "Central Air Conditioner",
       category: "HVAC",
@@ -176,7 +212,7 @@ export async function POST(req: NextRequest) {
       createdAt: now - 90 * DAY,
       updatedAt: now - 90 * DAY,
     },
-    "demo-tmpl-2": {
+    [`${p}-tmpl-2`]: {
       managementId: mgmtId,
       name: "Tankless Water Heater",
       category: "Plumbing",
@@ -187,7 +223,7 @@ export async function POST(req: NextRequest) {
       createdAt: now - 85 * DAY,
       updatedAt: now - 30 * DAY,
     },
-    "demo-tmpl-3": {
+    [`${p}-tmpl-3`]: {
       managementId: mgmtId,
       name: "Smart Thermostat",
       category: "HVAC",
@@ -203,8 +239,10 @@ export async function POST(req: NextRequest) {
 
   // Equipment (per homeowner)
   const equipmentData: Record<string, unknown> = {
-    "demo-eq-1": {
-      userId: "demo-homeowner",
+    [eq1]: {
+      userId: hw1,
+      managementId: mgmtId,
+      jobId: job1,
       name: "Central Air Conditioner",
       category: "HVAC",
       manufacturer: "Carrier",
@@ -217,8 +255,10 @@ export async function POST(req: NextRequest) {
       createdAt: now - 70 * DAY,
       updatedAt: now - 10 * DAY,
     },
-    "demo-eq-2": {
-      userId: "demo-homeowner",
+    [eq2]: {
+      userId: hw1,
+      managementId: mgmtId,
+      jobId: job1,
       name: "Tankless Water Heater",
       category: "Plumbing",
       manufacturer: "Rinnai",
@@ -231,8 +271,10 @@ export async function POST(req: NextRequest) {
       createdAt: now - 65 * DAY,
       updatedAt: now - 5 * DAY,
     },
-    "demo-eq-3": {
-      userId: "demo-homeowner",
+    [eq3]: {
+      userId: hw1,
+      managementId: mgmtId,
+      jobId: job1,
       name: "Smart Thermostat",
       category: "HVAC",
       manufacturer: "Ecobee",
@@ -243,8 +285,10 @@ export async function POST(req: NextRequest) {
       createdAt: now - 60 * DAY,
       updatedAt: now - 60 * DAY,
     },
-    "demo-eq-4": {
-      userId: "demo-homeowner-2",
+    [eq4]: {
+      userId: hw2,
+      managementId: mgmtId,
+      jobId: job2,
       name: "Pool Pump",
       category: "Outdoor",
       manufacturer: "Pentair",
@@ -257,8 +301,10 @@ export async function POST(req: NextRequest) {
       createdAt: now - 50 * DAY,
       updatedAt: now - 3 * DAY,
     },
-    "demo-eq-5": {
-      userId: "demo-homeowner-2",
+    [eq5]: {
+      userId: hw2,
+      managementId: mgmtId,
+      jobId: job2,
       name: "Garage Door Opener",
       category: "General",
       manufacturer: "LiftMaster",
@@ -271,8 +317,10 @@ export async function POST(req: NextRequest) {
       createdAt: now - 45 * DAY,
       updatedAt: now - 45 * DAY,
     },
-    "demo-eq-6": {
-      userId: "demo-homeowner-3",
+    [eq6]: {
+      userId: hw3,
+      managementId: mgmtId,
+      jobId: job3,
       name: "Furnace",
       category: "HVAC",
       manufacturer: "Lennox",
@@ -290,65 +338,77 @@ export async function POST(req: NextRequest) {
 
   // Reminders
   const remindersData: Record<string, unknown> = {
-    "demo-rem-1": {
-      userId: "demo-homeowner",
+    [`${p}-rem-1`]: {
+      userId: hw1,
+      managementId: mgmtId,
+      jobId: job1,
       title: "Replace HVAC filter",
       description: "20x25x1 pleated filter for central AC unit",
       dueDate: new Date(now + 14 * DAY).toISOString().split("T")[0],
       recurring: "quarterly",
-      equipmentId: "demo-eq-1",
+      equipmentId: eq1,
       equipmentName: "Central Air Conditioner",
       completed: false,
       createdAt: now - 60 * DAY,
     },
-    "demo-rem-2": {
-      userId: "demo-homeowner",
+    [`${p}-rem-2`]: {
+      userId: hw1,
+      managementId: mgmtId,
+      jobId: job1,
       title: "Descale water heater",
       description: "Annual vinegar flush for tankless unit",
       dueDate: new Date(now + 60 * DAY).toISOString().split("T")[0],
       recurring: "yearly",
-      equipmentId: "demo-eq-2",
+      equipmentId: eq2,
       equipmentName: "Tankless Water Heater",
       completed: false,
       createdAt: now - 50 * DAY,
     },
-    "demo-rem-3": {
-      userId: "demo-homeowner",
+    [`${p}-rem-3`]: {
+      userId: hw1,
+      managementId: mgmtId,
+      jobId: job1,
       title: "Replace thermostat sensor batteries",
       dueDate: new Date(now - 5 * DAY).toISOString().split("T")[0],
       recurring: "yearly",
-      equipmentId: "demo-eq-3",
+      equipmentId: eq3,
       equipmentName: "Smart Thermostat",
       completed: true,
       createdAt: now - 40 * DAY,
     },
-    "demo-rem-4": {
-      userId: "demo-homeowner-2",
+    [`${p}-rem-4`]: {
+      userId: hw2,
+      managementId: mgmtId,
+      jobId: job2,
       title: "Pool pump inspection",
       description: "Check impeller and seals",
       dueDate: new Date(now + 7 * DAY).toISOString().split("T")[0],
       recurring: "quarterly",
-      equipmentId: "demo-eq-4",
+      equipmentId: eq4,
       equipmentName: "Pool Pump",
       completed: false,
       createdAt: now - 30 * DAY,
     },
-    "demo-rem-5": {
-      userId: "demo-homeowner-2",
+    [`${p}-rem-5`]: {
+      userId: hw2,
+      managementId: mgmtId,
+      jobId: job2,
       title: "Lubricate garage door rails",
       dueDate: new Date(now + 30 * DAY).toISOString().split("T")[0],
       recurring: "monthly",
-      equipmentId: "demo-eq-5",
+      equipmentId: eq5,
       equipmentName: "Garage Door Opener",
       completed: false,
       createdAt: now - 25 * DAY,
     },
-    "demo-rem-6": {
-      userId: "demo-homeowner-3",
+    [`${p}-rem-6`]: {
+      userId: hw3,
+      managementId: mgmtId,
+      jobId: job3,
       title: "Change furnace filter",
       dueDate: new Date(now + 21 * DAY).toISOString().split("T")[0],
       recurring: "quarterly",
-      equipmentId: "demo-eq-6",
+      equipmentId: eq6,
       equipmentName: "Furnace",
       completed: false,
       createdAt: now - 15 * DAY,
@@ -358,9 +418,11 @@ export async function POST(req: NextRequest) {
 
   // Tasks
   const tasksData: Record<string, unknown> = {
-    "demo-task-1": {
-      homeownerId: "demo-homeowner",
+    [`${p}-task-1`]: {
+      homeownerId: hw1,
       homeownerName: "Alex Rivera",
+      managementId: mgmtId,
+      jobId: job1,
       assignedTo: mgmtId,
       assignedToName: "Apex Property Management",
       title: "Fix kitchen faucet leak",
@@ -389,24 +451,28 @@ export async function POST(req: NextRequest) {
       createdAt: now - 5 * DAY,
       updatedAt: now - 1 * DAY,
     },
-    "demo-task-2": {
-      homeownerId: "demo-homeowner",
+    [`${p}-task-2`]: {
+      homeownerId: hw1,
       homeownerName: "Alex Rivera",
+      managementId: mgmtId,
+      jobId: job1,
       assignedTo: mgmtId,
       assignedToName: "Apex Property Management",
       title: "Annual HVAC tune-up",
       description: "Scheduled seasonal maintenance for central AC",
       status: "pending",
       priority: "medium",
-      equipmentId: "demo-eq-1",
+      equipmentId: eq1,
       equipmentName: "Central Air Conditioner",
       updates: {},
       createdAt: now - 10 * DAY,
       updatedAt: now - 10 * DAY,
     },
-    "demo-task-3": {
-      homeownerId: "demo-homeowner-2",
+    [`${p}-task-3`]: {
+      homeownerId: hw2,
       homeownerName: "Jordan Patel",
+      managementId: mgmtId,
+      jobId: job2,
       assignedTo: mgmtId,
       assignedToName: "Apex Property Management",
       title: "Pool heater not igniting",
@@ -417,9 +483,11 @@ export async function POST(req: NextRequest) {
       createdAt: now - 2 * DAY,
       updatedAt: now - 2 * DAY,
     },
-    "demo-task-4": {
-      homeownerId: "demo-homeowner",
+    [`${p}-task-4`]: {
+      homeownerId: hw1,
       homeownerName: "Alex Rivera",
+      managementId: mgmtId,
+      jobId: job1,
       title: "Replace weatherstripping on front door",
       description: "Draft coming in around the front door seal",
       status: "completed",
@@ -442,9 +510,11 @@ export async function POST(req: NextRequest) {
 
   // Billing records
   const billingData: Record<string, unknown> = {
-    "demo-bill-1": {
-      homeownerId: "demo-homeowner",
+    [`${p}-bill-1`]: {
+      homeownerId: hw1,
       homeownerName: "Alex Rivera",
+      managementId: mgmtId,
+      jobId: job1,
       description: "Quarterly maintenance — Q1 service",
       amount: 450,
       status: "paid",
@@ -452,18 +522,22 @@ export async function POST(req: NextRequest) {
       paidDate: new Date(now - 28 * DAY).toISOString().split("T")[0],
       createdAt: now - 45 * DAY,
     },
-    "demo-bill-2": {
-      homeownerId: "demo-homeowner",
+    [`${p}-bill-2`]: {
+      homeownerId: hw1,
       homeownerName: "Alex Rivera",
+      managementId: mgmtId,
+      jobId: job1,
       description: "Faucet cartridge replacement — parts & labor",
       amount: 185,
       status: "pending",
       dueDate: new Date(now + 15 * DAY).toISOString().split("T")[0],
       createdAt: now - 1 * DAY,
     },
-    "demo-bill-3": {
-      homeownerId: "demo-homeowner-2",
+    [`${p}-bill-3`]: {
+      homeownerId: hw2,
       homeownerName: "Jordan Patel",
+      managementId: mgmtId,
+      jobId: job2,
       description: "Pool pump service and chemical balancing",
       amount: 320,
       status: "paid",
@@ -471,18 +545,22 @@ export async function POST(req: NextRequest) {
       paidDate: new Date(now - 8 * DAY).toISOString().split("T")[0],
       createdAt: now - 25 * DAY,
     },
-    "demo-bill-4": {
-      homeownerId: "demo-homeowner-2",
+    [`${p}-bill-4`]: {
+      homeownerId: hw2,
       homeownerName: "Jordan Patel",
+      managementId: mgmtId,
+      jobId: job2,
       description: "Deck staining and repair",
       amount: 875,
       status: "overdue",
       dueDate: new Date(now - 5 * DAY).toISOString().split("T")[0],
       createdAt: now - 20 * DAY,
     },
-    "demo-bill-5": {
-      homeownerId: "demo-homeowner-3",
+    [`${p}-bill-5`]: {
+      homeownerId: hw3,
       homeownerName: "Sam Nakamura",
+      managementId: mgmtId,
+      jobId: job3,
       description: "Initial home assessment and equipment inventory",
       amount: 200,
       status: "pending",
@@ -495,18 +573,6 @@ export async function POST(req: NextRequest) {
   return NextResponse.json({ seeded: true });
 }
 
-// All demo key prefixes used across the RTDB
-const DEMO_KEYS: Record<string, string[]> = {
-  users: ["demo-management", "demo-homeowner", "demo-homeowner-2", "demo-homeowner-3"],
-  jobs: ["demo-job-1", "demo-job-2", "demo-job-3"],
-  handymanTime: ["demo-ht-1", "demo-ht-2", "demo-ht-3", "demo-ht-4"],
-  equipmentTemplates: ["demo-tmpl-1", "demo-tmpl-2", "demo-tmpl-3"],
-  equipment: ["demo-eq-1", "demo-eq-2", "demo-eq-3", "demo-eq-4", "demo-eq-5", "demo-eq-6"],
-  reminders: ["demo-rem-1", "demo-rem-2", "demo-rem-3", "demo-rem-4", "demo-rem-5", "demo-rem-6"],
-  tasks: ["demo-task-1", "demo-task-2", "demo-task-3", "demo-task-4"],
-  billing: ["demo-bill-1", "demo-bill-2", "demo-bill-3", "demo-bill-4", "demo-bill-5"],
-};
-
 export async function DELETE(req: NextRequest) {
   const demoRole = req.cookies.get("demo_role")?.value;
   const userId = await getAuthUserId();
@@ -515,11 +581,13 @@ export async function DELETE(req: NextRequest) {
   }
 
   const db = getDb();
+  const { p } = resolveContext(demoRole, userId);
+  const keys = getDemoKeys(p);
 
   const removes: Promise<void>[] = [];
-  for (const [collection, keys] of Object.entries(DEMO_KEYS)) {
-    for (const key of keys) {
-      removes.push(db.ref(`${collection}/${key}`).remove());
+  for (const [collection, ids] of Object.entries(keys)) {
+    for (const id of ids) {
+      removes.push(db.ref(`${collection}/${id}`).remove());
     }
   }
 
@@ -536,6 +604,7 @@ export async function GET(req: NextRequest) {
   }
 
   const db = getDb();
-  const check = await db.ref("users/demo-management").get();
+  const { p } = resolveContext(demoRole, userId);
+  const check = await db.ref(`users/${p}-homeowner`).get();
   return NextResponse.json({ loaded: check.exists() });
 }
