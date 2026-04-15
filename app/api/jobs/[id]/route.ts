@@ -62,6 +62,11 @@ export async function DELETE(
     return NextResponse.json({ error: "Not found" }, { status: 404 });
   }
 
+  const job = snapshot.val();
+  if (job.managementId !== userId) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
+
   await db.ref(`jobs/${id}`).remove();
   return NextResponse.json({ success: true });
 }

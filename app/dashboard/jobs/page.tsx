@@ -16,6 +16,10 @@ import {
   ClipboardList,
   Receipt,
   Search,
+  Trash2,
+  AlertTriangle,
+  Building2,
+  User,
 } from "lucide-react";
 import type {
   Job,
@@ -42,6 +46,9 @@ export default function JobsPage() {
     "all" | "active" | "paused" | "completed"
   >("all");
   const [search, setSearch] = useState("");
+  const [deleteTarget, setDeleteTarget] = useState<Job | null>(null);
+  const [deleteConfirmed, setDeleteConfirmed] = useState(false);
+  const [deleting, setDeleting] = useState(false);
 
   // Homeowner search state for the modal
   const [selectedHomeowner, setSelectedHomeowner] =
@@ -130,6 +137,26 @@ export default function JobsPage() {
       // handle
     } finally {
       setSaving(false);
+    }
+  }
+
+  async function handleDelete() {
+    if (!deleteTarget || !deleteConfirmed) return;
+    setDeleting(true);
+    try {
+      const res = await fetch(`/api/jobs/${deleteTarget.id}`, {
+        method: "DELETE",
+      });
+      if (res.ok) {
+        if (selectedJob?.id === deleteTarget.id) setSelectedJob(null);
+        setDeleteTarget(null);
+        setDeleteConfirmed(false);
+        fetchData();
+      }
+    } catch {
+      // handle
+    } finally {
+      setDeleting(false);
     }
   }
 
@@ -254,7 +281,14 @@ export default function JobsPage() {
                     </h3>
                     {job.homeownerName && (
                       <p className="text-sm text-muted truncate">
+                        <User className="w-3 h-3 inline mr-1" />
                         {job.homeownerName}
+                      </p>
+                    )}
+                    {job.managementName && (
+                      <p className="text-sm text-muted truncate">
+                        <Building2 className="w-3 h-3 inline mr-1" />
+                        {job.managementName}
                       </p>
                     )}
                   </div>
@@ -306,13 +340,37 @@ export default function JobsPage() {
                   </p>
                 )}
 
-                <div className="flex items-center gap-1.5 mt-3 text-xs text-muted/60">
-                  <Clock className="w-3 h-3" />
-                  Updated{" "}
-                  {new Date(job.updatedAt).toLocaleDateString("en-US", {
-                    month: "short",
-                    day: "numeric",
-                  })}
+                <div className="flex items-center justify-between mt-3">
+                  <div className="flex items-center gap-1.5 text-xs text-muted/60">
+                    <Clock className="w-3 h-3" />
+                    Updated{" "}
+                    {new Date(job.updatedAt).toLocaleDateString("en-US", {
+                      month: "short",
+                      day: "numeric",
+                    })}
+                  </div>
+                  {isManagement && (
+                    <div
+                      role="button"
+                      tabIndex={0}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setDeleteTarget(job);
+                        setDeleteConfirmed(false);
+                      }}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") {
+                          e.stopPropagation();
+                          setDeleteTarget(job);
+                          setDeleteConfirmed(false);
+                        }
+                      }}
+                      className="p-1.5 rounded-lg text-muted/40 hover:text-red-400 hover:bg-red-500/10 opacity-0 group-hover:opacity-100 transition-all"
+                      title="Delete job"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </div>
+                  )}
                 </div>
               </button>
             );
@@ -404,6 +462,63 @@ export default function JobsPage() {
                 {saving ? "Creating..." : "Create Job"}
               </button>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Delete Confirmation Modal */}
+      {deleteTarget && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div
+            className="absolute inset-0 bg-black/70 backdrop-blur-sm"
+            onClick={() => setDeleteTarget(null)}
+          />
+          <div className="relative w-full max-w-sm glass-strong rounded-2xl p-6">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-10 h-10 rounded-xl bg-red-500/10 flex items-center justify-center shrink-0">
+                <AlertTriangle className="w-5 h-5 text-red-400" />
+              </div>
+              <div>
+                <h2 className="text-lg font-semibold">Delete Job</h2>
+                <p className="text-sm text-muted">This cannot be undone.</p>
+              </div>
+            </div>
+
+            <p className="text-sm text-muted mb-4">
+              Are you sure you want to delete{" "}
+              <span className="text-foreground font-medium">
+                {deleteTarget.title}
+              </span>
+              ? This will permanently remove the job record.
+            </p>
+
+            <label className="flex items-start gap-2.5 mb-5 cursor-pointer group">
+              <input
+                type="checkbox"
+                checked={deleteConfirmed}
+                onChange={(e) => setDeleteConfirmed(e.target.checked)}
+                className="mt-0.5 w-4 h-4 rounded border-white/20 bg-white/5 accent-red-500"
+              />
+              <span className="text-sm text-muted group-hover:text-foreground transition-colors">
+                I understand this action is permanent and cannot be reversed.
+              </span>
+            </label>
+
+            <div className="flex gap-3">
+              <button
+                onClick={() => setDeleteTarget(null)}
+                className="flex-1 py-2 rounded-xl glass text-sm font-medium hover:bg-white/5 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleDelete}
+                disabled={!deleteConfirmed || deleting}
+                className="flex-1 py-2 rounded-xl bg-red-500/20 text-red-400 text-sm font-medium hover:bg-red-500/30 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+              >
+                {deleting ? "Deleting..." : "Delete Job"}
+              </button>
+            </div>
           </div>
         </div>
       )}
