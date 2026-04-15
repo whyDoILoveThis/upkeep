@@ -105,7 +105,7 @@ function DashboardLayoutInner({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const { user } = useUser();
   const { demoMode, demoRole, demoReady } = useDemoMode();
-  const { selectedJob, setSelectedJob } = useSelectedJob();
+  const { selectedJob, setSelectedJob, jobs } = useSelectedJob();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [jobDropdownOpen, setJobDropdownOpen] = useState(false);
   const jobDropdownRef = useRef<HTMLDivElement>(null);
@@ -339,7 +339,7 @@ function DashboardLayoutInner({ children }: { children: React.ReactNode }) {
               >
                 <Menu className="w-5 h-5" />
               </button>
-              {profile?.role === "management" && (
+              {profile && (
                 <div className="relative" ref={jobDropdownRef}>
                   <button
                     onClick={() => setJobDropdownOpen(!jobDropdownOpen)}
@@ -354,7 +354,37 @@ function DashboardLayoutInner({ children }: { children: React.ReactNode }) {
                     />
                   </button>
                   {jobDropdownOpen && (
-                    <div className="absolute top-full left-0 mt-1 w-48 rounded-xl border border-white/10 shadow-xl py-1 z-50 bg-slate-900">
+                    <div className="absolute top-full left-0 mt-1 w-56 rounded-xl border border-white/10 shadow-xl py-1 z-50 bg-slate-900 max-h-80 overflow-y-auto">
+                      {jobs.length > 0 && (
+                        <>
+                          {jobs.map((job) => (
+                            <button
+                              key={job.id}
+                              onClick={() => {
+                                setSelectedJob(job);
+                                setJobDropdownOpen(false);
+                              }}
+                              className={`w-full flex items-center gap-2 px-3 py-2 text-sm transition-colors ${
+                                selectedJob?.id === job.id
+                                  ? "text-accent-light bg-accent/10"
+                                  : "text-muted hover:text-foreground hover:bg-white/5"
+                              }`}
+                            >
+                              <span
+                                className={`w-1.5 h-1.5 rounded-full shrink-0 ${
+                                  job.status === "active"
+                                    ? "bg-success"
+                                    : job.status === "paused"
+                                      ? "bg-warning"
+                                      : "bg-muted"
+                                }`}
+                              />
+                              <span className="truncate">{job.title}</span>
+                            </button>
+                          ))}
+                          <div className="border-t border-white/5 my-1" />
+                        </>
+                      )}
                       {selectedJob && (
                         <button
                           onClick={() => {

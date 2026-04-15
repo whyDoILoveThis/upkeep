@@ -98,10 +98,9 @@ export default function FilesPage() {
     }
   }
 
-  const jobScoped =
-    profile?.role === "management" && selectedJob
-      ? files.filter((f) => f.userId === selectedJob.homeownerId)
-      : files;
+  const jobScoped = selectedJob
+    ? files.filter((f) => f.jobId === selectedJob.id)
+    : files;
 
   const filtered = filterEquipmentId
     ? jobScoped.filter((f) => f.equipmentId === filterEquipmentId)

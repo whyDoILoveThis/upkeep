@@ -143,10 +143,9 @@ export default function TasksPage() {
     }
   }
 
-  const jobScoped =
-    profile?.role === "management" && selectedJob
-      ? tasks.filter((t) => t.homeownerId === selectedJob.homeownerId)
-      : tasks;
+  const jobScoped = selectedJob
+    ? tasks.filter((t) => t.jobId === selectedJob.id)
+    : tasks;
 
   const filtered = jobScoped.filter(
     (t) => statusFilter === "all" || t.status === statusFilter,

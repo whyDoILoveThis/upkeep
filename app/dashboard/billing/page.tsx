@@ -101,10 +101,9 @@ export default function BillingPage() {
     }
   }
 
-  const jobScoped =
-    profile?.role === "management" && selectedJob
-      ? bills.filter((b) => b.homeownerId === selectedJob.homeownerId)
-      : bills;
+  const jobScoped = selectedJob
+    ? bills.filter((b) => b.jobId === selectedJob.id)
+    : bills;
 
   const filtered = jobScoped.filter(
     (b) => statusFilter === "all" || b.status === statusFilter,

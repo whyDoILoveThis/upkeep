@@ -127,10 +127,9 @@ export default function RemindersPage() {
     }
   }
 
-  const jobScoped =
-    profile?.role === "management" && selectedJob
-      ? reminders.filter((r) => r.userId === selectedJob.homeownerId)
-      : reminders;
+  const jobScoped = selectedJob
+    ? reminders.filter((r) => r.jobId === selectedJob.id)
+    : reminders;
 
   const filtered = jobScoped.filter((r) => {
     if (filter === "completed") return r.completed;

@@ -216,10 +216,9 @@ export default function EquipmentPage() {
     }
   }
 
-  const jobScoped =
-    profile?.role === "management" && selectedJob
-      ? equipment.filter((e) => e.userId === selectedJob.homeownerId)
-      : equipment;
+  const jobScoped = selectedJob
+    ? equipment.filter((e) => e.jobId === selectedJob.id)
+    : equipment;
 
   const filtered = jobScoped.filter(
     (e) =>
