@@ -267,7 +267,7 @@ export default function EquipmentDetailPage() {
                   src={photos[0]}
                   alt={equipment.name}
                   fill
-                  className="object-cover"
+                  className="object-contain"
                   unoptimized
                 />
               </button>

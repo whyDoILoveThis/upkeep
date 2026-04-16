@@ -12,11 +12,13 @@ import {
   Link as LinkIcon,
   X,
 } from "lucide-react";
+import Image from "next/image";
 import type { FileRecord, Equipment } from "@/lib/types";
 import { useSelectedJob } from "@/lib/job-context";
 import Link from "next/link";
 import { useProfile } from "../layout";
 import { JobBadge } from "@/components/job-badge";
+import { PhotoLightbox } from "@/components/photo-lightbox";
 
 function formatFileSize(bytes: number) {
   if (bytes < 1024) return bytes + " B";
@@ -41,6 +43,8 @@ export default function FilesPage() {
   const [selectedEquipmentId, setSelectedEquipmentId] = useState("");
   const [filterEquipmentId, setFilterEquipmentId] = useState("");
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [lightboxPhotos, setLightboxPhotos] = useState<string[] | null>(null);
+  const [lightboxIndex, setLightboxIndex] = useState(0);
 
   const fetchData = useCallback(async () => {
     try {
@@ -166,29 +170,72 @@ export default function FilesPage() {
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
           {filtered.map((file) => {
             const FileIcon = getFileIcon(file.type);
+            const isImage = file.type.startsWith("image/");
             return (
-              <div key={file.id} className="glass-card rounded-xl p-5 group">
-                <div className="flex items-start justify-between mb-3">
-                  <div className="w-10 h-10 rounded-xl bg-accent/10 flex items-center justify-center">
-                    <FileIcon className="w-5 h-5 text-accent-light" />
-                  </div>
-                  <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                    <a
-                      href={file.url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="p-1.5 rounded-lg hover:bg-white/10"
-                    >
-                      <Download className="w-3.5 h-3.5 text-muted" />
-                    </a>
-                    <button
-                      onClick={() => handleDelete(file.id)}
-                      className="p-1.5 rounded-lg hover:bg-red-500/20"
-                    >
-                      <Trash2 className="w-3.5 h-3.5 text-muted" />
-                    </button>
-                  </div>
-                </div>
+              <div key={file.id} className="glass-card rounded-xl overflow-hidden group">
+                {isImage ? (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const imageFiles = filtered.filter((f) => f.type.startsWith("image/"));
+                      const urls = imageFiles.map((f) => f.url);
+                      const idx = imageFiles.findIndex((f) => f.id === file.id);
+                      setLightboxPhotos(urls);
+                      setLightboxIndex(idx >= 0 ? idx : 0);
+                    }}
+                    className="relative w-full h-40 bg-white/5 cursor-pointer"
+                  >
+                    <Image
+                      src={file.url}
+                      alt={file.name}
+                      fill
+                      className="object-contain"
+                      sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 25vw"
+                      unoptimized
+                    />
+                    <div className="absolute top-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <a
+                        href={file.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        onClick={(e) => e.stopPropagation()}
+                        className="p-1.5 rounded-lg bg-black/50 hover:bg-black/70 backdrop-blur-sm"
+                      >
+                        <Download className="w-3.5 h-3.5 text-white" />
+                      </a>
+                      <button
+                        onClick={(e) => { e.stopPropagation(); handleDelete(file.id); }}
+                        className="p-1.5 rounded-lg bg-black/50 hover:bg-red-500/50 backdrop-blur-sm"
+                      >
+                        <Trash2 className="w-3.5 h-3.5 text-white" />
+                      </button>
+                    </div>
+                  </button>
+                ) : null}
+                <div className="p-5">
+                  {!isImage && (
+                    <div className="flex items-start justify-between mb-3">
+                      <div className="w-10 h-10 rounded-xl bg-accent/10 flex items-center justify-center">
+                        <FileIcon className="w-5 h-5 text-accent-light" />
+                      </div>
+                      <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <a
+                          href={file.url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="p-1.5 rounded-lg hover:bg-white/10"
+                        >
+                          <Download className="w-3.5 h-3.5 text-muted" />
+                        </a>
+                        <button
+                          onClick={() => handleDelete(file.id)}
+                          className="p-1.5 rounded-lg hover:bg-red-500/20"
+                        >
+                          <Trash2 className="w-3.5 h-3.5 text-muted" />
+                        </button>
+                      </div>
+                    </div>
+                  )}
                 <div className="text-sm font-medium truncate">{file.name}</div>
                 <div className="text-xs text-muted mt-1">
                   {formatFileSize(file.size)}
@@ -205,10 +252,20 @@ export default function FilesPage() {
                 <div className="mt-2">
                   <JobBadge jobId={file.jobId} />
                 </div>
+                </div>
               </div>
             );
           })}
         </div>
+      )}
+
+      {/* Photo Lightbox */}
+      {lightboxPhotos && (
+        <PhotoLightbox
+          photos={lightboxPhotos}
+          initialIndex={lightboxIndex}
+          onClose={() => setLightboxPhotos(null)}
+        />
       )}
 
       {/* Upload modal */}
