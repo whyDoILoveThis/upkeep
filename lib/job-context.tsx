@@ -7,6 +7,9 @@ import {
   useEffect,
   useCallback,
 } from "react";
+import { useUser } from "@clerk/nextjs";
+import { ref, onValue } from "firebase/database";
+import { getClientDb } from "./firebase-client";
 import type { Job } from "./types";
 
 interface JobContextType {
@@ -24,8 +27,10 @@ const JobContext = createContext<JobContextType>({
 });
 
 export function JobProvider({ children }: { children: React.ReactNode }) {
+  const { user } = useUser();
   const [selectedJob, setSelectedJobState] = useState<Job | null>(null);
   const [jobs, setJobs] = useState<Job[]>([]);
+  const [userRole, setUserRole] = useState<string | null>(null);
 
   useEffect(() => {
     async function loadStoredJob() {
@@ -39,17 +44,43 @@ export function JobProvider({ children }: { children: React.ReactNode }) {
     loadStoredJob();
   }, []);
 
+  // Fetch user role once
   useEffect(() => {
-    async function fetchJobs() {
-      try {
-        const res = await fetch("/api/jobs");
-        if (res.ok) setJobs(await res.json());
-      } catch {
-        // ignore
+    if (!user?.id) return;
+    const db = getClientDb();
+    const userRef = ref(db, `users/${user.id}`);
+    const unsub = onValue(userRef, (snapshot) => {
+      if (snapshot.exists()) {
+        setUserRole(snapshot.val().role);
       }
-    }
-    fetchJobs();
-  }, []);
+    });
+    return unsub;
+  }, [user?.id]);
+
+  // Real-time jobs listener
+  useEffect(() => {
+    if (!user?.id || !userRole) return;
+
+    const db = getClientDb();
+    const jobsRef = ref(db, "jobs");
+    const unsub = onValue(jobsRef, (snapshot) => {
+      if (!snapshot.exists()) {
+        setJobs([]);
+        return;
+      }
+      const all = snapshot.val() as Record<string, Omit<Job, "id">>;
+      const items = Object.entries(all)
+        .map(([id, data]) => ({ id, ...data }))
+        .filter((j) =>
+          userRole === "management"
+            ? j.managementId === user.id
+            : j.homeownerId === user.id,
+        )
+        .sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0));
+      setJobs(items);
+    });
+    return unsub;
+  }, [user?.id, userRole]);
 
   const setSelectedJob = useCallback((job: Job | null) => {
     setSelectedJobState(job);
