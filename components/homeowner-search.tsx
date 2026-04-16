@@ -121,7 +121,7 @@ export default function HomeownerSearch({
       )}
 
       {dropdownOpen && !selectedHomeowner && (
-        <div className="absolute z-10 mt-1 w-full max-h-48 overflow-y-auto glass-strong rounded-xl border border-border shadow-xl">
+        <div className="absolute z-10 mt-1 w-full max-h-48 overflow-y-auto bg-[#0f172a] rounded-xl border border-border shadow-xl">
           {loading ? (
             <div className="px-4 py-3 text-sm text-muted">Searching...</div>
           ) : results.length === 0 && query.trim() ? (
