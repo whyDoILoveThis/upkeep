@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 import type { FileRecord, Equipment } from "@/lib/types";
 import { useSelectedJob } from "@/lib/job-context";
+import Link from "next/link";
 import { useProfile } from "../layout";
 import { JobBadge } from "@/components/job-badge";
 
@@ -192,11 +193,14 @@ export default function FilesPage() {
                 <div className="text-xs text-muted mt-1">
                   {formatFileSize(file.size)}
                 </div>
-                {file.equipmentName && (
-                  <div className="flex items-center gap-1 text-xs text-accent-light mt-2">
+                {file.equipmentName && file.equipmentId && (
+                  <Link
+                    href={`/dashboard/equipment/${file.equipmentId}`}
+                    className="flex items-center gap-1 text-xs px-2 py-0.5 rounded-full bg-accent/10 text-accent-light hover:bg-accent/20 transition-colors w-fit mt-2"
+                  >
                     <LinkIcon className="w-3 h-3" />
                     {file.equipmentName}
-                  </div>
+                  </Link>
                 )}
                 <div className="mt-2">
                   <JobBadge jobId={file.jobId} />
