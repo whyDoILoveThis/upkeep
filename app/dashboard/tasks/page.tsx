@@ -294,11 +294,12 @@ export default function TasksPage() {
                     {task.equipmentName && task.equipmentId && (
                       <Link
                         href={`/dashboard/equipment/${task.equipmentId}`}
-                        className="inline-flex items-center gap-1.5 text-sm px-3 py-1 rounded-lg bg-accent/15 text-accent-light hover:bg-accent/25 transition-colors font-medium mb-2"
+                        className="flex items-center gap-2 px-4 py-2 rounded-xl bg-accent/20 text-accent-light hover:bg-accent/30 border border-accent/20 hover:border-accent/40 transition-all font-semibold text-base mb-3 w-fit"
                         onClick={(e) => e.stopPropagation()}
                       >
-                        <Wrench className="w-3.5 h-3.5" />
+                        <Wrench className="w-4.5 h-4.5" />
                         {task.equipmentName}
+                        <span className="text-xs opacity-60 ml-1">→</span>
                       </Link>
                     )}
                     {task.description && (
