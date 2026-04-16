@@ -145,7 +145,12 @@ export default function EquipmentDetailPage() {
     setSaving(true);
     try {
       const uploadedPhotos: EquipmentPhoto[] = [];
-      const uploadedMeta: { url: string; fileId: string; fileName: string; fileSize: number }[] = [];
+      const uploadedMeta: {
+        url: string;
+        fileId: string;
+        fileName: string;
+        fileSize: number;
+      }[] = [];
       for (const file of newPhotoFiles) {
         const formData = new FormData();
         formData.append("file", file);
@@ -156,7 +161,12 @@ export default function EquipmentDetailPage() {
         if (uploadRes.ok) {
           const data = await uploadRes.json();
           uploadedPhotos.push({ url: data.fileUrl, fileId: data.fileId });
-          uploadedMeta.push({ url: data.fileUrl, fileId: data.fileId, fileName: file.name, fileSize: file.size });
+          uploadedMeta.push({
+            url: data.fileUrl,
+            fileId: data.fileId,
+            fileName: file.name,
+            fileSize: file.size,
+          });
         }
       }
       const photos = [...existingPhotos, ...uploadedPhotos];

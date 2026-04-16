@@ -172,12 +172,17 @@ export default function FilesPage() {
             const FileIcon = getFileIcon(file.type);
             const isImage = file.type.startsWith("image/");
             return (
-              <div key={file.id} className="glass-card rounded-xl overflow-hidden group">
+              <div
+                key={file.id}
+                className="glass-card rounded-xl overflow-hidden group"
+              >
                 {isImage ? (
                   <button
                     type="button"
                     onClick={() => {
-                      const imageFiles = filtered.filter((f) => f.type.startsWith("image/"));
+                      const imageFiles = filtered.filter((f) =>
+                        f.type.startsWith("image/"),
+                      );
                       const urls = imageFiles.map((f) => f.url);
                       const idx = imageFiles.findIndex((f) => f.id === file.id);
                       setLightboxPhotos(urls);
@@ -204,7 +209,10 @@ export default function FilesPage() {
                         <Download className="w-3.5 h-3.5 text-white" />
                       </a>
                       <button
-                        onClick={(e) => { e.stopPropagation(); handleDelete(file.id); }}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleDelete(file.id);
+                        }}
                         className="p-1.5 rounded-lg bg-black/50 hover:bg-red-500/50 backdrop-blur-sm"
                       >
                         <Trash2 className="w-3.5 h-3.5 text-white" />
@@ -236,22 +244,24 @@ export default function FilesPage() {
                       </div>
                     </div>
                   )}
-                <div className="text-sm font-medium truncate">{file.name}</div>
-                <div className="text-xs text-muted mt-1">
-                  {formatFileSize(file.size)}
-                </div>
-                {file.equipmentName && file.equipmentId && (
-                  <Link
-                    href={`/dashboard/equipment/${file.equipmentId}`}
-                    className="flex items-center gap-1 text-xs px-2 py-0.5 rounded-full bg-accent/10 text-accent-light hover:bg-accent/20 transition-colors w-fit mt-2"
-                  >
-                    <LinkIcon className="w-3 h-3" />
-                    {file.equipmentName}
-                  </Link>
-                )}
-                <div className="mt-2">
-                  <JobBadge jobId={file.jobId} />
-                </div>
+                  <div className="text-sm font-medium truncate">
+                    {file.name}
+                  </div>
+                  <div className="text-xs text-muted mt-1">
+                    {formatFileSize(file.size)}
+                  </div>
+                  {file.equipmentName && file.equipmentId && (
+                    <Link
+                      href={`/dashboard/equipment/${file.equipmentId}`}
+                      className="flex items-center gap-1 text-xs px-2 py-0.5 rounded-full bg-accent/10 text-accent-light hover:bg-accent/20 transition-colors w-fit mt-2"
+                    >
+                      <LinkIcon className="w-3 h-3" />
+                      {file.equipmentName}
+                    </Link>
+                  )}
+                  <div className="mt-2">
+                    <JobBadge jobId={file.jobId} />
+                  </div>
                 </div>
               </div>
             );
