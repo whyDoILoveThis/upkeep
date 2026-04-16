@@ -181,6 +181,7 @@ export default function EquipmentPage() {
     try {
       // Upload new photos
       const uploadedPhotos: EquipmentPhoto[] = [];
+      const uploadedMeta: { url: string; fileId: string; fileName: string; fileSize: number }[] = [];
       for (const file of newPhotoFiles) {
         const formData = new FormData();
         formData.append("file", file);
@@ -191,6 +192,7 @@ export default function EquipmentPage() {
         if (uploadRes.ok) {
           const data = await uploadRes.json();
           uploadedPhotos.push({ url: data.fileUrl, fileId: data.fileId });
+          uploadedMeta.push({ url: data.fileUrl, fileId: data.fileId, fileName: file.name, fileSize: file.size });
         }
       }
 
@@ -207,6 +209,23 @@ export default function EquipmentPage() {
       });
 
       if (res.ok) {
+        const saved = await res.json();
+        const eqId = editingId || saved.id;
+
+        // Register new photos as file records
+        if (uploadedMeta.length > 0) {
+          fetch("/api/equipment-photo-files", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              equipmentId: eqId,
+              equipmentName: form.name,
+              jobId: (saved as Record<string, unknown>).jobId || null,
+              photos: uploadedMeta,
+            }),
+          }).catch(() => {});
+        }
+
         setShowModal(false);
         resetForm();
         fetchEquipment();
