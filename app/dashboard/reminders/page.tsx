@@ -105,15 +105,23 @@ export default function RemindersPage() {
   }
 
   async function toggleComplete(id: string, completed: boolean) {
+    // Optimistic update
+    setReminders((prev) =>
+      prev.map((r) => (r.id === id ? { ...r, completed: !completed } : r)),
+    );
     try {
-      await fetch(`/api/reminders/${id}`, {
+      const res = await fetch(`/api/reminders/${id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ completed: !completed }),
       });
-      fetchData();
+      if (!res.ok) throw new Error();
     } catch {
-      // handle error
+      // Revert on failure
+      setReminders((prev) =>
+        prev.map((r) => (r.id === id ? { ...r, completed } : r)),
+      );
+      alert("Failed to update reminder. Please try again.");
     }
   }
 
