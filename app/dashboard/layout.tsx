@@ -1,9 +1,16 @@
 "use client";
 
-import { useState, useEffect, useRef, createContext, useContext } from "react";
+import {
+  useState,
+  useEffect,
+  useRef,
+  useMemo,
+  createContext,
+  useContext,
+} from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { UserButton, useUser, SignOutButton } from "@clerk/nextjs";
+import { UserButton, useUser, useClerk, SignOutButton } from "@clerk/nextjs";
 import {
   LayoutDashboard,
   Wrench,
@@ -26,7 +33,7 @@ import {
 import type { UserProfile } from "@/lib/types";
 import { DemoProvider, useDemoMode } from "@/lib/demo-context";
 import { JobProvider, useSelectedJob } from "@/lib/job-context";
-import { demoHomeowner, demoManagement } from "@/lib/demo-data";
+import { getDemoRoleFromEmail } from "@/lib/demo-utils";
 import type { UserRole } from "@/lib/types";
 
 interface UserContextType {
@@ -58,38 +65,36 @@ const navItems = [
   { href: "/dashboard/settings", icon: Settings, label: "Settings" },
 ];
 
-function getDemoRoleFromCookie(): UserRole | null {
-  if (typeof document === "undefined") return null;
-  const match = document.cookie.match(/(?:^|; )demo_role=(\w+)/);
-  const val = match?.[1];
-  if (val === "homeowner" || val === "management") return val;
-  return null;
-}
-
 export default function DashboardLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
-  const [demoRole, setDemoRole] = useState<UserRole | null>(null);
+  const { user, isLoaded } = useUser();
   const [demoReady, setDemoReady] = useState(false);
+
+  const demoRole = useMemo<UserRole | null>(() => {
+    if (!user?.primaryEmailAddress?.emailAddress) return null;
+    return getDemoRoleFromEmail(user.primaryEmailAddress.emailAddress);
+  }, [user]);
 
   useEffect(() => {
     async function initDemo() {
-      const role = getDemoRoleFromCookie();
-      setDemoRole(role);
-      if (role) {
-        // Seed demo data in Firebase on first visit
+      if (demoRole) {
         try {
-          await fetch("/api/demo/seed", { method: "POST" });
+          await fetch("/api/demo/seed", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ role: demoRole }),
+          });
         } catch {
           // ignore seed errors
         }
       }
       setDemoReady(true);
     }
-    initDemo();
-  }, []);
+    if (isLoaded) initDemo();
+  }, [isLoaded, demoRole]);
 
   return (
     <DemoProvider demoRole={demoRole} demoReady={demoReady}>
@@ -104,6 +109,7 @@ function DashboardLayoutInner({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
   const { user } = useUser();
+  const { signOut } = useClerk();
   const { demoMode, demoRole, demoReady } = useDemoMode();
   const { selectedJob, setSelectedJob, jobs } = useSelectedJob();
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -116,48 +122,29 @@ function DashboardLayoutInner({ children }: { children: React.ReactNode }) {
     if (!demoReady) return;
 
     async function fetchProfile() {
-      if (demoMode && demoRole) {
-        // Demo mode — fetch profile from seeded DB
-        try {
-          const res = await fetch("/api/users/me");
-          if (res.ok) {
-            setProfile(await res.json());
-          } else {
-            // Fallback to local demo data if seed hasn't run yet
-            setProfile(
-              demoRole === "homeowner" ? demoHomeowner : demoManagement,
-            );
-          }
-        } catch {
-          setProfile(demoRole === "homeowner" ? demoHomeowner : demoManagement);
-        }
-        setLoading(false);
-        return;
-      }
-
       try {
         const res = await fetch("/api/users/me");
         if (res.ok) {
-          const data = await res.json();
-          setProfile(data);
-        } else {
+          setProfile(await res.json());
+        } else if (!demoMode) {
           router.replace("/onboarding");
           return;
         }
       } catch {
-        router.replace("/onboarding");
-        return;
+        if (!demoMode) {
+          router.replace("/onboarding");
+          return;
+        }
       } finally {
         setLoading(false);
       }
     }
     fetchProfile();
-  }, [router, demoMode, demoRole, demoReady]);
+  }, [router, demoMode, demoReady]);
 
   function exitDemo() {
-    document.cookie = "demo_role=; path=/; max-age=0";
     setSelectedJob(null);
-    window.location.href = "/";
+    signOut({ redirectUrl: "/" });
   }
 
   useEffect(() => {
