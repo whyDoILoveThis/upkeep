@@ -14,14 +14,33 @@ import {
   Pencil,
   Trash2,
   Upload,
-  Image as ImageIcon,
   FileDown,
 } from "lucide-react";
-import type { Equipment, EquipmentTemplate } from "@/lib/types";
+import type { Equipment, EquipmentTemplate, EquipmentPhoto } from "@/lib/types";
 import Image from "next/image";
+import Link from "next/link";
 import { useSelectedJob } from "@/lib/job-context";
 import { useProfile } from "../layout";
 import { JobBadge } from "@/components/job-badge";
+import { PhotoLightbox } from "@/components/photo-lightbox";
+
+/** Get all photo URLs from equipment, handling legacy single-photo and Firebase object format */
+function getPhotoUrls(item: Equipment): string[] {
+  const photos = normalizePhotos(item);
+  return photos.map((p) => p.url);
+}
+
+function normalizePhotos(item: Equipment): EquipmentPhoto[] {
+  if (item.photos) {
+    const arr = Array.isArray(item.photos)
+      ? item.photos
+      : (Object.values(item.photos) as EquipmentPhoto[]);
+    if (arr.length > 0) return arr;
+  }
+  if (item.photoUrl)
+    return [{ url: item.photoUrl, fileId: item.photoFileId || "" }];
+  return [];
+}
 
 const categories = [
   "HVAC",
@@ -43,10 +62,12 @@ export default function EquipmentPage() {
   const [showModal, setShowModal] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
-  const [photoFile, setPhotoFile] = useState<File | null>(null);
-  const [photoPreview, setPhotoPreview] = useState<string | null>(null);
+  const [newPhotoFiles, setNewPhotoFiles] = useState<File[]>([]);
+  const [existingPhotos, setExistingPhotos] = useState<EquipmentPhoto[]>([]);
   const [templates, setTemplates] = useState<EquipmentTemplate[]>([]);
   const [showTemplatePicker, setShowTemplatePicker] = useState(false);
+  const [lightboxPhotos, setLightboxPhotos] = useState<string[] | null>(null);
+  const [lightboxIndex, setLightboxIndex] = useState(0);
 
   const [form, setForm] = useState({
     name: "",
@@ -106,8 +127,8 @@ export default function EquipmentPage() {
       location: "",
       notes: "",
     });
-    setPhotoFile(null);
-    setPhotoPreview(null);
+    setNewPhotoFiles([]);
+    setExistingPhotos([]);
     setEditingId(null);
   }
 
@@ -145,7 +166,10 @@ export default function EquipmentPage() {
       location: item.location || "",
       notes: item.notes || "",
     });
-    setPhotoPreview(item.photoUrl || null);
+    // Load existing photos
+    const photos = normalizePhotos(item);
+    setExistingPhotos(photos);
+    setNewPhotoFiles([]);
     setEditingId(item.id);
     setShowModal(true);
   }
@@ -155,24 +179,24 @@ export default function EquipmentPage() {
     setSaving(true);
 
     try {
-      let photoUrl = photoPreview;
-      let photoFileId: string | undefined;
-
-      if (photoFile) {
+      // Upload new photos
+      const uploadedPhotos: EquipmentPhoto[] = [];
+      for (const file of newPhotoFiles) {
         const formData = new FormData();
-        formData.append("file", photoFile);
+        formData.append("file", file);
         const uploadRes = await fetch("/api/upload", {
           method: "POST",
           body: formData,
         });
         if (uploadRes.ok) {
-          const uploadData = await uploadRes.json();
-          photoUrl = uploadData.fileUrl;
-          photoFileId = uploadData.fileId;
+          const data = await uploadRes.json();
+          uploadedPhotos.push({ url: data.fileUrl, fileId: data.fileId });
         }
       }
 
-      const body = { ...form, photoUrl, photoFileId };
+      const photos = [...existingPhotos, ...uploadedPhotos];
+
+      const body = { ...form, photos };
       const url = editingId ? `/api/equipment/${editingId}` : "/api/equipment";
       const method = editingId ? "PATCH" : "POST";
 
@@ -205,15 +229,28 @@ export default function EquipmentPage() {
   }
 
   function handlePhotoChange(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0];
-    if (file) {
-      if (file.size > 10 * 1024 * 1024) {
-        alert("File must be under 10MB");
-        return;
+    const files = Array.from(e.target.files || []);
+    const valid = files.filter((f) => {
+      if (f.size > 10 * 1024 * 1024) {
+        alert(`${f.name} is over 10MB and was skipped.`);
+        return false;
       }
-      setPhotoFile(file);
-      setPhotoPreview(URL.createObjectURL(file));
-    }
+      return true;
+    });
+    setNewPhotoFiles((prev) => [...prev, ...valid]);
+  }
+
+  function removeExistingPhoto(index: number) {
+    setExistingPhotos((prev) => prev.filter((_, i) => i !== index));
+  }
+
+  function removeNewPhoto(index: number) {
+    setNewPhotoFiles((prev) => prev.filter((_, i) => i !== index));
+  }
+
+  function openLightbox(photos: string[], index: number) {
+    setLightboxPhotos(photos);
+    setLightboxIndex(index);
   }
 
   const jobScoped = selectedJob
@@ -293,85 +330,133 @@ export default function EquipmentPage() {
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {filtered.map((item) => (
-            <div
-              key={item.id}
-              className="glass-card rounded-2xl overflow-hidden group"
-            >
-              {/* Photo */}
-              <div className="relative h-40 bg-linear-to-br from-white/3 to-white/1 flex items-center justify-center">
-                {item.photoUrl ? (
-                  <Image
-                    src={item.photoUrl}
-                    alt={item.name}
-                    fill
-                    className="object-cover"
-                    unoptimized
-                  />
-                ) : (
-                  <Wrench className="w-10 h-10 text-muted/30" />
+          {filtered.map((item) => {
+            const photos = getPhotoUrls(item);
+            return (
+              <Link
+                href={`/dashboard/equipment/${item.id}`}
+                key={item.id}
+                className="glass-card rounded-2xl overflow-hidden group block"
+              >
+                {/* Photo */}
+                <div className="relative h-40 bg-linear-to-br from-white/3 to-white/1 flex items-center justify-center">
+                  {photos.length > 0 ? (
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        openLightbox(photos, 0);
+                      }}
+                      className="relative w-full h-full"
+                    >
+                      <Image
+                        src={photos[0]}
+                        alt={item.name}
+                        fill
+                        className="object-cover"
+                        unoptimized
+                      />
+                    </button>
+                  ) : (
+                    <Wrench className="w-10 h-10 text-muted/30" />
+                  )}
+                  {/* Actions overlay */}
+                  <div className="absolute top-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <button
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        openEdit(item);
+                      }}
+                      className="p-1.5 rounded-lg bg-black/60 hover:bg-black/80 transition-colors"
+                    >
+                      <Pencil className="w-3.5 h-3.5" />
+                    </button>
+                    <button
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        handleDelete(item.id);
+                      }}
+                      className="p-1.5 rounded-lg bg-black/60 hover:bg-red-500/80 transition-colors"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                  <div className="absolute top-2 left-2">
+                    <span className="text-xs px-2 py-0.5 rounded-full bg-black/60 text-foreground/80 font-medium">
+                      {item.category}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Thumbnail row */}
+                {photos.length > 1 && (
+                  <div className="flex gap-1.5 px-5 pt-3 overflow-x-auto">
+                    {photos.map((url, i) => (
+                      <button
+                        key={url}
+                        type="button"
+                        onClick={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          openLightbox(photos, i);
+                        }}
+                        className="relative w-10 h-10 rounded-lg overflow-hidden shrink-0 border border-border hover:border-accent-light transition-colors"
+                      >
+                        <Image
+                          src={url}
+                          alt={`${item.name} ${i + 1}`}
+                          fill
+                          className="object-cover"
+                          unoptimized
+                        />
+                      </button>
+                    ))}
+                  </div>
                 )}
-                {/* Actions overlay */}
-                <div className="absolute top-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                  <button
-                    onClick={() => openEdit(item)}
-                    className="p-1.5 rounded-lg bg-black/60 hover:bg-black/80 transition-colors"
-                  >
-                    <Pencil className="w-3.5 h-3.5" />
-                  </button>
-                  <button
-                    onClick={() => handleDelete(item.id)}
-                    className="p-1.5 rounded-lg bg-black/60 hover:bg-red-500/80 transition-colors"
-                  >
-                    <Trash2 className="w-3.5 h-3.5" />
-                  </button>
-                </div>
-                <div className="absolute top-2 left-2">
-                  <span className="text-xs px-2 py-0.5 rounded-full bg-black/60 text-foreground/80 font-medium">
-                    {item.category}
-                  </span>
-                </div>
-              </div>
 
-              {/* Details */}
-              <div className="p-5 space-y-3">
-                <div className="flex items-center justify-between gap-2">
-                  <h3 className="font-semibold truncate">{item.name}</h3>
-                  <JobBadge jobId={item.jobId} />
-                </div>
+                {/* Details */}
+                <div className="p-5 space-y-3">
+                  <div className="flex items-center justify-between gap-2">
+                    <h3 className="font-semibold truncate">{item.name}</h3>
+                    <JobBadge jobId={item.jobId} />
+                  </div>
 
-                <div className="space-y-1.5 text-xs text-muted">
-                  {item.manufacturer && (
-                    <div className="flex items-center gap-2">
-                      <Factory className="w-3.5 h-3.5" /> {item.manufacturer}
-                    </div>
-                  )}
-                  {item.modelNo && (
-                    <div className="flex items-center gap-2">
-                      <Hash className="w-3.5 h-3.5" /> {item.modelNo}
-                    </div>
-                  )}
-                  {item.location && (
-                    <div className="flex items-center gap-2">
-                      <MapPin className="w-3.5 h-3.5" /> {item.location}
-                    </div>
-                  )}
-                  {item.warrantyExpiration && (
-                    <div className="flex items-center gap-2">
-                      <Shield className="w-3.5 h-3.5" /> Warranty:{" "}
-                      {new Date(item.warrantyExpiration).toLocaleDateString()}
-                    </div>
-                  )}
-                  {item.datePurchased && (
-                    <div className="flex items-center gap-2">
-                      <Calendar className="w-3.5 h-3.5" /> Purchased:{" "}
-                      {new Date(item.datePurchased).toLocaleDateString()}
-                    </div>
-                  )}
+                  <div className="space-y-1.5 text-xs text-muted">
+                    {item.manufacturer && (
+                      <div className="flex items-center gap-2">
+                        <Factory className="w-3.5 h-3.5" /> {item.manufacturer}
+                      </div>
+                    )}
+                    {item.modelNo && (
+                      <div className="flex items-center gap-2">
+                        <Hash className="w-3.5 h-3.5" /> {item.modelNo}
+                      </div>
+                    )}
+                    {item.location && (
+                      <div className="flex items-center gap-2">
+                        <MapPin className="w-3.5 h-3.5" /> {item.location}
+                      </div>
+                    )}
+                    {item.warrantyExpiration && (
+                      <div className="flex items-center gap-2">
+                        <Shield className="w-3.5 h-3.5" /> Warranty:{" "}
+                        {new Date(item.warrantyExpiration).toLocaleDateString()}
+                      </div>
+                    )}
+                    {item.datePurchased && (
+                      <div className="flex items-center gap-2">
+                        <Calendar className="w-3.5 h-3.5" /> Purchased:{" "}
+                        {new Date(item.datePurchased).toLocaleDateString()}
+                      </div>
+                    )}
+                  </div>
                 </div>
-              </div>
-            </div>
-          ))}
+              </Link>
+            );
+          })}
         </div>
       )}
 
@@ -399,27 +484,57 @@ export default function EquipmentPage() {
               {/* Photo upload */}
               <div>
                 <label className="block text-sm font-medium mb-1.5">
-                  Photo
+                  Photos
                 </label>
-                <div className="flex items-center gap-4">
-                  <div className="relative w-20 h-20 rounded-xl bg-white/5 border border-border flex items-center justify-center overflow-hidden">
-                    {photoPreview ? (
+                <div className="flex flex-wrap gap-2">
+                  {existingPhotos.map((photo, i) => (
+                    <div
+                      key={photo.url}
+                      className="relative w-16 h-16 rounded-xl overflow-hidden border border-border group/thumb"
+                    >
                       <Image
-                        src={photoPreview}
-                        alt="Preview"
+                        src={photo.url}
+                        alt={`Photo ${i + 1}`}
                         fill
                         className="object-cover"
                         unoptimized
                       />
-                    ) : (
-                      <ImageIcon className="w-6 h-6 text-muted" />
-                    )}
-                  </div>
-                  <label className="btn-secondary text-sm cursor-pointer flex items-center gap-2">
-                    <Upload className="w-4 h-4" /> Upload Photo
+                      <button
+                        type="button"
+                        onClick={() => removeExistingPhoto(i)}
+                        className="absolute inset-0 flex items-center justify-center bg-black/60 opacity-0 group-hover/thumb:opacity-100 transition-opacity"
+                      >
+                        <X className="w-4 h-4 text-red-400" />
+                      </button>
+                    </div>
+                  ))}
+                  {newPhotoFiles.map((file, i) => (
+                    <div
+                      key={file.name + i}
+                      className="relative w-16 h-16 rounded-xl overflow-hidden border border-border group/thumb"
+                    >
+                      <Image
+                        src={URL.createObjectURL(file)}
+                        alt={`New ${i + 1}`}
+                        fill
+                        className="object-cover"
+                        unoptimized
+                      />
+                      <button
+                        type="button"
+                        onClick={() => removeNewPhoto(i)}
+                        className="absolute inset-0 flex items-center justify-center bg-black/60 opacity-0 group-hover/thumb:opacity-100 transition-opacity"
+                      >
+                        <X className="w-4 h-4 text-red-400" />
+                      </button>
+                    </div>
+                  ))}
+                  <label className="w-16 h-16 rounded-xl border-2 border-dashed border-border hover:border-accent/50 flex items-center justify-center cursor-pointer transition-colors">
+                    <Upload className="w-5 h-5 text-muted" />
                     <input
                       type="file"
                       accept="image/*"
+                      multiple
                       onChange={handlePhotoChange}
                       className="hidden"
                     />
@@ -630,6 +745,15 @@ export default function EquipmentPage() {
             </div>
           </div>
         </div>
+      )}
+
+      {/* Photo Lightbox */}
+      {lightboxPhotos && (
+        <PhotoLightbox
+          photos={lightboxPhotos}
+          initialIndex={lightboxIndex}
+          onClose={() => setLightboxPhotos(null)}
+        />
       )}
     </div>
   );

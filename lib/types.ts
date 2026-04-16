@@ -12,6 +12,11 @@ export interface UserProfile {
   createdAt: number;
 }
 
+export interface EquipmentPhoto {
+  url: string;
+  fileId: string;
+}
+
 export interface Equipment {
   id: string;
   userId: string;
@@ -26,8 +31,11 @@ export interface Equipment {
   manufacturer?: string;
   location?: string;
   notes?: string;
+  /** @deprecated use photos[] */
   photoUrl?: string;
+  /** @deprecated use photos[] */
   photoFileId?: string;
+  photos?: EquipmentPhoto[];
   createdAt: number;
   updatedAt: number;
 }

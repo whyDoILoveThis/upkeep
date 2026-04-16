@@ -54,8 +54,9 @@ export async function POST(req: NextRequest) {
     managementId: isManagement ? userId : (body.managementId || null),
     jobId: parsed.data.jobId || null,
     ...parsed.data,
-    photoUrl: body.photoUrl || null,
-    photoFileId: body.photoFileId || null,
+    photos: body.photos || [],
+    photoUrl: null,
+    photoFileId: null,
     createdAt: Date.now(),
     updatedAt: Date.now(),
   };
