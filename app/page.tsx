@@ -1,6 +1,8 @@
 "use client";
 
+import { useState } from "react";
 import Link from "next/link";
+import { useSignIn } from "@clerk/nextjs/legacy";
 import { motion } from "framer-motion";
 import {
   Shield,
@@ -16,6 +18,7 @@ import {
   ArrowRight,
   Check,
   Play,
+  Loader2,
 } from "lucide-react";
 
 const fadeUp = {
@@ -78,6 +81,42 @@ const stats = [
 ];
 
 export default function LandingPage() {
+  const { isLoaded, signIn, setActive } = useSignIn();
+  const [demoLoading, setDemoLoading] = useState<
+    "homeowner" | "management" | null
+  >(null);
+
+  async function handleDemoSignIn(role: "homeowner" | "management") {
+    if (!isLoaded || !signIn || !setActive) return;
+    setDemoLoading(role);
+    try {
+      const email =
+        role === "homeowner"
+          ? process.env.NEXT_PUBLIC_DEMO_HOMEOWNER_EMAIL!
+          : process.env.NEXT_PUBLIC_DEMO_MANAGEMENT_EMAIL!;
+      const password =
+        role === "homeowner"
+          ? process.env.NEXT_PUBLIC_DEMO_HOMEOWNER_PASSWORD!
+          : process.env.NEXT_PUBLIC_DEMO_MANAGEMENT_PASSWORD!;
+
+      const result = await signIn.create({
+        identifier: email,
+        password,
+      });
+
+      if (result.status === "complete") {
+        await setActive({ session: result.createdSessionId });
+        window.location.href = "/dashboard";
+      } else {
+        console.error("Demo sign-in incomplete, status:", result.status);
+        setDemoLoading(null);
+      }
+    } catch (err) {
+      console.error("Demo sign-in failed:", err);
+      setDemoLoading(null);
+    }
+  }
+
   return (
     <div className="min-h-screen bg-background overflow-hidden">
       {/* Ambient background effects */}
@@ -199,9 +238,10 @@ export default function LandingPage() {
           >
             <p className="text-sm text-muted">Or explore with a live demo</p>
             <div className="flex flex-col sm:flex-row items-center gap-3">
-              <Link
-                href="/api/demo?role=homeowner"
-                className="group glass-card rounded-xl px-6 py-3 flex items-center gap-3 hover:bg-accent/10 transition-all duration-300"
+              <button
+                onClick={() => handleDemoSignIn("homeowner")}
+                disabled={!!demoLoading}
+                className="group glass-card rounded-xl px-6 py-3 flex items-center gap-3 hover:bg-accent/10 transition-all duration-300 disabled:opacity-60"
               >
                 <div className="w-8 h-8 rounded-lg bg-accent/15 flex items-center justify-center group-hover:bg-accent/25 transition-colors">
                   <Home className="w-4 h-4 text-accent-light" />
@@ -210,11 +250,16 @@ export default function LandingPage() {
                   <div className="text-sm font-medium">Homeowner Demo</div>
                   <div className="text-xs text-muted">View as a homeowner</div>
                 </div>
-                <Play className="w-3.5 h-3.5 text-accent-light ml-2 opacity-0 group-hover:opacity-100 transition-opacity" />
-              </Link>
-              <Link
-                href="/api/demo?role=management"
-                className="group glass-card rounded-xl px-6 py-3 flex items-center gap-3 hover:bg-purple-500/10 transition-all duration-300"
+                {demoLoading === "homeowner" ? (
+                  <Loader2 className="w-3.5 h-3.5 text-accent-light ml-2 animate-spin" />
+                ) : (
+                  <Play className="w-3.5 h-3.5 text-accent-light ml-2 opacity-0 group-hover:opacity-100 transition-opacity" />
+                )}
+              </button>
+              <button
+                onClick={() => handleDemoSignIn("management")}
+                disabled={!!demoLoading}
+                className="group glass-card rounded-xl px-6 py-3 flex items-center gap-3 hover:bg-purple-500/10 transition-all duration-300 disabled:opacity-60"
               >
                 <div className="w-8 h-8 rounded-lg bg-purple-500/15 flex items-center justify-center group-hover:bg-purple-500/25 transition-colors">
                   <Users className="w-4 h-4 text-purple-400" />
@@ -223,8 +268,12 @@ export default function LandingPage() {
                   <div className="text-sm font-medium">Management Demo</div>
                   <div className="text-xs text-muted">View as management</div>
                 </div>
-                <Play className="w-3.5 h-3.5 text-purple-400 ml-2 opacity-0 group-hover:opacity-100 transition-opacity" />
-              </Link>
+                {demoLoading === "management" ? (
+                  <Loader2 className="w-3.5 h-3.5 text-purple-400 ml-2 animate-spin" />
+                ) : (
+                  <Play className="w-3.5 h-3.5 text-purple-400 ml-2 opacity-0 group-hover:opacity-100 transition-opacity" />
+                )}
+              </button>
             </div>
           </motion.div>
 
@@ -530,13 +579,23 @@ export default function LandingPage() {
                     </li>
                   ))}
                 </ul>
-                <Link
-                  href={`/api/demo?role=${card.role === "Homeowner" ? "homeowner" : "management"}`}
-                  className="mt-8 w-full inline-flex items-center justify-center gap-2 glass rounded-xl px-6 py-3 text-sm font-medium hover:bg-accent/10 transition-all duration-300"
+                <button
+                  onClick={() =>
+                    handleDemoSignIn(
+                      card.role === "Homeowner" ? "homeowner" : "management",
+                    )
+                  }
+                  disabled={!!demoLoading}
+                  className="mt-8 w-full inline-flex items-center justify-center gap-2 glass rounded-xl px-6 py-3 text-sm font-medium hover:bg-accent/10 transition-all duration-300 disabled:opacity-60"
                 >
-                  <Play className="w-3.5 h-3.5 text-accent-light" />
+                  {demoLoading ===
+                  (card.role === "Homeowner" ? "homeowner" : "management") ? (
+                    <Loader2 className="w-3.5 h-3.5 text-accent-light animate-spin" />
+                  ) : (
+                    <Play className="w-3.5 h-3.5 text-accent-light" />
+                  )}
                   Try {card.role} Demo
-                </Link>
+                </button>
               </motion.div>
             ))}
           </div>
