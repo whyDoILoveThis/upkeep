@@ -4,10 +4,9 @@ import { Briefcase } from "lucide-react";
 import { useSelectedJob } from "@/lib/job-context";
 
 export function JobBadge({ jobId }: { jobId?: string }) {
-  const { selectedJob, getJobTitle } = useSelectedJob();
+  const { getJobTitle } = useSelectedJob();
 
-  // Don't show badge when a specific job is already selected
-  if (selectedJob || !jobId) return null;
+  if (!jobId) return null;
 
   const title = getJobTitle(jobId);
   if (!title) return null;
