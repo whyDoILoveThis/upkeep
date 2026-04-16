@@ -4,6 +4,34 @@ import { getDb } from "@/lib/firebase-admin";
 
 type RouteParams = { params: Promise<{ id: string }> };
 
+export async function GET(
+  _req: NextRequest,
+  { params }: RouteParams
+) {
+  const userId = await getAuthUserId();
+  if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+  const { id } = await params;
+  const db = getDb();
+  const snapshot = await db.ref(`equipment/${id}`).get();
+
+  if (!snapshot.exists()) {
+    return NextResponse.json({ error: "Not found" }, { status: 404 });
+  }
+
+  const item = snapshot.val();
+
+  // Verify access: owner or management
+  if (item.userId !== userId) {
+    const userSnap = await db.ref(`users/${userId}`).get();
+    if (!userSnap.exists() || userSnap.val().role !== "management") {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
+  }
+
+  return NextResponse.json({ id, ...item });
+}
+
 export async function PATCH(
   req: NextRequest,
   { params }: RouteParams
