@@ -2,7 +2,6 @@
 
 import { useEffect, useState, useCallback } from "react";
 import { useProfile } from "../layout";
-import { useDemoMode } from "@/lib/demo-context";
 import { useSelectedJob } from "@/lib/job-context";
 import { useRouter } from "next/navigation";
 import {
@@ -32,7 +31,6 @@ import HomeownerSearch from "@/components/homeowner-search";
 
 export default function JobsPage() {
   const { profile } = useProfile();
-  const { demoMode, demoRole } = useDemoMode();
   const { selectedJob, setSelectedJob } = useSelectedJob();
   const router = useRouter();
   const [jobs, setJobs] = useState<Job[]>([]);
@@ -61,8 +59,7 @@ export default function JobsPage() {
     notes: "",
   });
 
-  const isManagement =
-    profile?.role === "management" || demoRole === "management";
+  const isManagement = profile?.role === "management";
 
   const fetchData = useCallback(async () => {
     try {
@@ -170,7 +167,7 @@ export default function JobsPage() {
         j.address?.toLowerCase().includes(search.toLowerCase()),
     );
 
-  if (!isManagement && profile?.role !== "homeowner" && !demoMode) {
+  if (!isManagement && profile?.role !== "homeowner") {
     return (
       <div className="flex items-center justify-center h-96">
         <p className="text-muted">Please complete onboarding first.</p>

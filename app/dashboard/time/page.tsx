@@ -15,7 +15,7 @@ import {
 } from "lucide-react";
 import { HandymanTimeRing } from "@/components/handyman-time-ring";
 import type { HandymanTime, UserProfile, Job } from "@/lib/types";
-import { useDemoMode } from "@/lib/demo-context";
+
 import { useSelectedJob } from "@/lib/job-context";
 import { initializeApp, getApps, getApp } from "firebase/app";
 import { getDatabase, ref as dbRef, onValue, off } from "firebase/database";
@@ -162,7 +162,6 @@ function EntryCard({
 
 export default function HandymanTimePage() {
   const { profile } = useProfile();
-  const { demoMode, demoRole } = useDemoMode();
   const { selectedJob } = useSelectedJob();
   const [entries, setEntries] = useState<HandymanTime[]>([]);
   const [homeowners, setHomeowners] = useState<UserProfile[]>([]);
@@ -173,8 +172,7 @@ export default function HandymanTimePage() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const listenerRef = useRef<ReturnType<typeof dbRef> | null>(null);
 
-  const isManagement =
-    profile?.role === "management" || demoRole === "management";
+  const isManagement = profile?.role === "management";
 
   const [form, setForm] = useState({
     userId: "",
@@ -188,7 +186,7 @@ export default function HandymanTimePage() {
 
   // Real-time Firebase listener
   useEffect(() => {
-    if (!profile && !demoMode) return;
+    if (!profile) return;
 
     const db = getFirebaseDb();
     const htRef = dbRef(db, "handymanTime");
@@ -205,14 +203,7 @@ export default function HandymanTimePage() {
       ).map(([id, data]) => ({ id, ...data }));
 
       let filtered: HandymanTime[];
-      if (demoMode) {
-        const role = demoRole;
-        if (role === "management") {
-          filtered = all.filter((e) => e.managementId === "demo-management");
-        } else {
-          filtered = all.filter((e) => e.userId === "demo-homeowner");
-        }
-      } else if (profile?.role === "management") {
+      if (profile?.role === "management") {
         filtered = all.filter((e) => e.managementId === profile.id);
       } else {
         filtered = all.filter((e) => e.userId === profile?.id);
@@ -233,7 +224,7 @@ export default function HandymanTimePage() {
         off(listenerRef.current);
       }
     };
-  }, [profile, demoMode, demoRole]);
+  }, [profile]);
 
   // Fetch homeowners and jobs for management
   useEffect(() => {
