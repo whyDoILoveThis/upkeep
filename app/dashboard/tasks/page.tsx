@@ -13,11 +13,14 @@ import {
   Link as LinkIcon,
   ChevronDown,
   ChevronUp,
+  Pencil,
 } from "lucide-react";
 import type { Task, Equipment, UserProfile } from "@/lib/types";
 import { useSelectedJob } from "@/lib/job-context";
 import HomeownerSearch from "@/components/homeowner-search";
 import { JobBadge } from "@/components/job-badge";
+import { PillSelect } from "@/components/pill-select";
+import Link from "next/link";
 
 const statusColors: Record<string, string> = {
   pending: "bg-white/5 text-muted",
@@ -31,9 +34,29 @@ const priorityColors: Record<string, string> = {
   high: "bg-red-400/10 text-red-400",
 };
 
+const statusOptions = [
+  { value: "pending", label: "Pending", colorClass: statusColors.pending },
+  {
+    value: "in-progress",
+    label: "In Progress",
+    colorClass: statusColors["in-progress"],
+  },
+  {
+    value: "completed",
+    label: "Completed",
+    colorClass: statusColors.completed,
+  },
+];
+
+const priorityOptions = [
+  { value: "low", label: "Low", colorClass: priorityColors.low },
+  { value: "medium", label: "Medium", colorClass: priorityColors.medium },
+  { value: "high", label: "High", colorClass: priorityColors.high },
+];
+
 export default function TasksPage() {
   const { profile } = useProfile();
-  const { selectedJob } = useSelectedJob();
+  const { selectedJob, jobs } = useSelectedJob();
   const [tasks, setTasks] = useState<Task[]>([]);
   const [equipment, setEquipment] = useState<Equipment[]>([]);
   const [selectedHomeowner, setSelectedHomeowner] =
@@ -45,13 +68,16 @@ export default function TasksPage() {
   const [saving, setSaving] = useState(false);
   const [sendingUpdate, setSendingUpdate] = useState(false);
   const [statusFilter, setStatusFilter] = useState<string>("all");
+  const [editingTaskId, setEditingTaskId] = useState<string | null>(null);
 
   const [form, setForm] = useState({
     title: "",
     description: "",
+    status: "pending" as Task["status"],
     priority: "medium" as Task["priority"],
     equipmentId: "",
     homeownerId: "",
+    jobId: "",
   });
 
   const fetchData = useCallback(async () => {
@@ -75,24 +101,63 @@ export default function TasksPage() {
     if (profile) fetchData();
   }, [profile, fetchData]);
 
+  function resetForm() {
+    setForm({
+      title: "",
+      description: "",
+      status: "pending",
+      priority: "medium",
+      equipmentId: "",
+      homeownerId: "",
+      jobId: "",
+    });
+    setEditingTaskId(null);
+    setSelectedHomeowner(null);
+  }
+
+  function openEdit(task: Task) {
+    setForm({
+      title: task.title,
+      description: task.description || "",
+      status: task.status,
+      priority: task.priority,
+      equipmentId: task.equipmentId || "",
+      homeownerId: task.homeownerId || "",
+      jobId: task.jobId || "",
+    });
+    setEditingTaskId(task.id);
+    setSelectedHomeowner(
+      task.homeownerId && task.homeownerName
+        ? ({ id: task.homeownerId, name: task.homeownerName } as UserProfile)
+        : null,
+    );
+    setShowModal(true);
+  }
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setSaving(true);
     try {
-      const res = await fetch("/api/tasks", {
-        method: "POST",
+      const url = editingTaskId ? `/api/tasks/${editingTaskId}` : "/api/tasks";
+      const method = editingTaskId ? "PATCH" : "POST";
+
+      // Resolve equipment name for the payload
+      const equipmentName = form.equipmentId
+        ? equipment.find((eq) => eq.id === form.equipmentId)?.name
+        : undefined;
+
+      const body = editingTaskId
+        ? { ...form, equipmentName: equipmentName || null }
+        : form;
+
+      const res = await fetch(url, {
+        method,
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(form),
+        body: JSON.stringify(body),
       });
       if (res.ok) {
         setShowModal(false);
-        setForm({
-          title: "",
-          description: "",
-          priority: "medium",
-          equipmentId: "",
-          homeownerId: "",
-        });
+        resetForm();
         fetchData();
       }
     } catch {
@@ -161,7 +226,10 @@ export default function TasksPage() {
           </p>
         </div>
         <button
-          onClick={() => setShowModal(true)}
+          onClick={() => {
+            resetForm();
+            setShowModal(true);
+          }}
           className="btn-primary flex items-center gap-2 whitespace-nowrap"
         >
           <Plus className="w-4 h-4" /> New Task
@@ -214,10 +282,7 @@ export default function TasksPage() {
               : [];
 
             return (
-              <div
-                key={task.id}
-                className="glass-card rounded-xl overflow-hidden"
-              >
+              <div key={task.id} className="glass-card rounded-xl">
                 <div
                   className="p-5 flex items-start gap-4 cursor-pointer"
                   onClick={() => setExpandedTask(isExpanded ? null : task.id)}
@@ -243,11 +308,15 @@ export default function TasksPage() {
                         <Flag className="w-3 h-3 inline mr-0.5" />
                         {task.priority}
                       </span>
-                      {task.equipmentName && (
-                        <span className="text-xs text-muted flex items-center gap-1">
+                      {task.equipmentName && task.equipmentId && (
+                        <Link
+                          href={`/dashboard/equipment/${task.equipmentId}`}
+                          className="text-xs px-2 py-0.5 rounded-full bg-accent/10 text-accent-light hover:bg-accent/20 transition-colors flex items-center gap-1 w-fit"
+                          onClick={(e) => e.stopPropagation()}
+                        >
                           <LinkIcon className="w-3 h-3" />
                           {task.equipmentName}
-                        </span>
+                        </Link>
                       )}
                       {task.homeownerName && (
                         <span className="text-xs text-muted flex items-center gap-1">
@@ -262,28 +331,14 @@ export default function TasksPage() {
                   <div className="flex items-center gap-2 shrink-0">
                     {/* Status dropdown (management only) */}
                     {profile?.role === "management" && (
-                      <select
+                      <PillSelect
                         value={task.status}
-                        onChange={(e) => {
-                          e.stopPropagation();
-                          updateStatus(
-                            task.id,
-                            e.target.value as Task["status"],
-                          );
-                        }}
-                        onClick={(e) => e.stopPropagation()}
-                        className="glass-input rounded-lg px-2 py-1 text-xs"
-                      >
-                        <option value="pending" className="bg-[#0f172a]">
-                          Pending
-                        </option>
-                        <option value="in-progress" className="bg-[#0f172a]">
-                          In Progress
-                        </option>
-                        <option value="completed" className="bg-[#0f172a]">
-                          Completed
-                        </option>
-                      </select>
+                        onChange={(val) =>
+                          updateStatus(task.id, val as Task["status"])
+                        }
+                        options={statusOptions}
+                        compact
+                      />
                     )}
                     {isExpanded ? (
                       <ChevronUp className="w-4 h-4 text-muted" />
@@ -301,12 +356,22 @@ export default function TasksPage() {
                         <MessageSquare className="w-4 h-4 text-accent-light" />
                         Project Updates
                       </h4>
-                      <button
-                        onClick={() => handleDelete(task.id)}
-                        className="text-xs text-danger hover:underline"
-                      >
-                        Delete Task
-                      </button>
+                      <div className="flex items-center gap-3">
+                        {profile?.role === "management" && (
+                          <button
+                            onClick={() => openEdit(task)}
+                            className="text-xs text-accent-light hover:underline flex items-center gap-1"
+                          >
+                            <Pencil className="w-3 h-3" /> Edit
+                          </button>
+                        )}
+                        <button
+                          onClick={() => handleDelete(task.id)}
+                          className="text-xs text-danger hover:underline"
+                        >
+                          Delete Task
+                        </button>
+                      </div>
                     </div>
 
                     {/* Updates list */}
@@ -379,13 +444,21 @@ export default function TasksPage() {
         <div className="fixed inset-0 z-60 flex items-center justify-center p-4">
           <div
             className="absolute inset-0 bg-black/70 backdrop-blur-sm"
-            onClick={() => setShowModal(false)}
+            onClick={() => {
+              setShowModal(false);
+              resetForm();
+            }}
           />
           <div className="relative glass-strong rounded-2xl w-full max-w-md p-6">
             <div className="flex items-center justify-between mb-6">
-              <h2 className="text-lg font-semibold">New Task</h2>
+              <h2 className="text-lg font-semibold">
+                {editingTaskId ? "Edit Task" : "New Task"}
+              </h2>
               <button
-                onClick={() => setShowModal(false)}
+                onClick={() => {
+                  setShowModal(false);
+                  resetForm();
+                }}
                 className="text-muted hover:text-foreground"
               >
                 <X className="w-5 h-5" />
@@ -426,52 +499,50 @@ export default function TasksPage() {
                   <label className="block text-sm font-medium mb-1.5">
                     Priority
                   </label>
-                  <select
+                  <PillSelect
                     value={form.priority}
-                    onChange={(e) =>
-                      setForm({
-                        ...form,
-                        priority: e.target.value as Task["priority"],
-                      })
+                    onChange={(val) =>
+                      setForm({ ...form, priority: val as Task["priority"] })
                     }
-                    className="glass-input w-full rounded-xl px-4 py-2.5 text-sm"
-                  >
-                    <option value="low" className="bg-[#0f172a]">
-                      Low
-                    </option>
-                    <option value="medium" className="bg-[#0f172a]">
-                      Medium
-                    </option>
-                    <option value="high" className="bg-[#0f172a]">
-                      High
-                    </option>
-                  </select>
+                    options={priorityOptions}
+                  />
                 </div>
-                <div>
-                  <label className="block text-sm font-medium mb-1.5">
-                    Equipment
-                  </label>
-                  <select
-                    value={form.equipmentId}
-                    onChange={(e) =>
-                      setForm({ ...form, equipmentId: e.target.value })
-                    }
-                    className="glass-input w-full rounded-xl px-4 py-2.5 text-sm"
-                  >
-                    <option value="" className="bg-[#0f172a]">
-                      None
+                {editingTaskId && (
+                  <div>
+                    <label className="block text-sm font-medium mb-1.5">
+                      Status
+                    </label>
+                    <PillSelect
+                      value={form.status}
+                      onChange={(val) =>
+                        setForm({ ...form, status: val as Task["status"] })
+                      }
+                      options={statusOptions}
+                    />
+                  </div>
+                )}
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium mb-1.5">
+                  Equipment
+                </label>
+                <select
+                  value={form.equipmentId}
+                  onChange={(e) =>
+                    setForm({ ...form, equipmentId: e.target.value })
+                  }
+                  className="glass-input w-full rounded-xl px-4 py-2.5 text-sm"
+                >
+                  <option value="" className="bg-[#0f172a]">
+                    None
+                  </option>
+                  {equipment.map((eq) => (
+                    <option key={eq.id} value={eq.id} className="bg-[#0f172a]">
+                      {eq.name}
                     </option>
-                    {equipment.map((eq) => (
-                      <option
-                        key={eq.id}
-                        value={eq.id}
-                        className="bg-[#0f172a]"
-                      >
-                        {eq.name}
-                      </option>
-                    ))}
-                  </select>
-                </div>
+                  ))}
+                </select>
               </div>
 
               {/* Homeowner selection (management only) */}
@@ -490,10 +561,43 @@ export default function TasksPage() {
                 </div>
               )}
 
+              {/* Job selection (management only) */}
+              {profile?.role === "management" && (
+                <div>
+                  <label className="block text-sm font-medium mb-1.5">
+                    Job
+                  </label>
+                  <select
+                    value={form.jobId}
+                    onChange={(e) =>
+                      setForm({ ...form, jobId: e.target.value })
+                    }
+                    className="glass-input w-full rounded-xl px-4 py-2.5 text-sm"
+                  >
+                    <option value="" className="bg-[#0f172a]">
+                      None
+                    </option>
+                    {jobs.map((job) => (
+                      <option
+                        key={job.id}
+                        value={job.id}
+                        className="bg-[#0f172a]"
+                      >
+                        {job.title}
+                        {job.homeownerName ? ` — ${job.homeownerName}` : ""}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
+
               <div className="flex justify-end gap-3 pt-2">
                 <button
                   type="button"
-                  onClick={() => setShowModal(false)}
+                  onClick={() => {
+                    setShowModal(false);
+                    resetForm();
+                  }}
                   className="btn-secondary text-sm"
                 >
                   Cancel
@@ -503,7 +607,13 @@ export default function TasksPage() {
                   disabled={saving}
                   className="btn-primary text-sm disabled:opacity-50"
                 >
-                  {saving ? "Creating..." : "Create Task"}
+                  {saving
+                    ? editingTaskId
+                      ? "Saving..."
+                      : "Creating..."
+                    : editingTaskId
+                      ? "Save Changes"
+                      : "Create Task"}
                 </button>
               </div>
             </form>
