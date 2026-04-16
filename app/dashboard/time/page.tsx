@@ -17,21 +17,8 @@ import { HandymanTimeRing } from "@/components/handyman-time-ring";
 import type { HandymanTime, UserProfile, Job } from "@/lib/types";
 
 import { useSelectedJob } from "@/lib/job-context";
-import { initializeApp, getApps, getApp } from "firebase/app";
-import { getDatabase, ref as dbRef, onValue, off } from "firebase/database";
-
-function getFirebaseDb() {
-  const app =
-    getApps().length === 0
-      ? initializeApp({
-          apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
-          authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
-          projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
-          databaseURL: process.env.NEXT_PUBLIC_FIREBASE_DATABASE_URL,
-        })
-      : getApp();
-  return getDatabase(app);
-}
+import { getClientDb } from "@/lib/firebase-client";
+import { ref as dbRef, onValue, off } from "firebase/database";
 
 function getQuarterDates() {
   const now = new Date();
@@ -188,7 +175,7 @@ export default function HandymanTimePage() {
   useEffect(() => {
     if (!profile) return;
 
-    const db = getFirebaseDb();
+    const db = getClientDb();
     const htRef = dbRef(db, "handymanTime");
 
     onValue(htRef, (snapshot) => {
