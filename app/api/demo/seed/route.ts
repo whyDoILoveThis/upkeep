@@ -3,15 +3,13 @@ import { getDb } from "@/lib/firebase-admin";
 import { getAuthUserId } from "@/lib/auth-helpers";
 
 // Seeds demo data into Firebase Realtime DB, scoped per user.
-// Anonymous demo users share "demo" prefix; real users get "{userId}-demo" prefix.
+// All demo data uses "{userId}-demo" prefix to isolate each user's demo data.
 
-function resolveContext(demoRole: string | undefined, userId: string | null, userRole: string | null) {
-  const isDemoMode = demoRole === "homeowner" || demoRole === "management";
-  // Prefix for all generated record keys — isolates each user's demo data
-  const p = isDemoMode ? "demo" : `${userId}-demo`;
-  const isHomeowner = isDemoMode ? demoRole === "homeowner" : userRole === "homeowner";
-  const mgmtId = isDemoMode ? `${p}-management` : isHomeowner ? `${p}-management` : userId!;
-  return { isDemoMode, isHomeowner, p, mgmtId };
+function resolveContext(userId: string, role: string) {
+  const p = `${userId}-demo`;
+  const isHomeowner = role === "homeowner";
+  const mgmtId = isHomeowner ? `${p}-management` : userId;
+  return { isHomeowner, p, mgmtId };
 }
 
 /** Build the full set of demo keys for a given prefix so DELETE can clean up */
@@ -29,22 +27,32 @@ function getDemoKeys(p: string): Record<string, string[]> {
 }
 
 export async function POST(req: NextRequest) {
-  const demoRole = req.cookies.get("demo_role")?.value;
   const userId = await getAuthUserId();
-  if (demoRole !== "homeowner" && demoRole !== "management" && !userId) {
-    return NextResponse.json({ error: "Demo only" }, { status: 403 });
+  if (!userId) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  // Accept role from request body or look it up from the DB
+  let role: string | null = null;
+  try {
+    const body = await req.json();
+    role = body.role;
+  } catch {
+    // no body
   }
 
   const db = getDb();
 
-  // Look up real user's role if authenticated
-  let userRole: string | null = null;
-  if (userId) {
+  if (!role) {
     const userSnap = await db.ref(`users/${userId}`).get();
-    if (userSnap.exists()) userRole = userSnap.val().role;
+    if (userSnap.exists()) role = userSnap.val().role;
   }
 
-  const { isDemoMode, isHomeowner, p, mgmtId } = resolveContext(demoRole, userId, userRole);
+  if (role !== "homeowner" && role !== "management") {
+    return NextResponse.json({ error: "Invalid role" }, { status: 400 });
+  }
+
+  const { isHomeowner, p, mgmtId } = resolveContext(userId, role);
 
   // Scoped IDs
   const hw1 = `${p}-homeowner`;
@@ -62,7 +70,7 @@ export async function POST(req: NextRequest) {
   const eq6 = `${p}-eq-6`;
 
   // Check if already seeded for this user
-  const checkKey = isHomeowner && !isDemoMode ? `${p}-management` : `${p}-homeowner`;
+  const checkKey = isHomeowner ? `${p}-management` : `${p}-homeowner`;
   const check = await db.ref(`users/${checkKey}`).get();
   if (check.exists()) {
     return NextResponse.json({ seeded: false, message: "Already seeded" });
@@ -71,8 +79,8 @@ export async function POST(req: NextRequest) {
   const now = Date.now();
   const DAY = 86400000;
 
-  // --- Homeowner-specific seed path (real authenticated homeowner) ---
-  if (isHomeowner && !isDemoMode) {
+  // --- Homeowner seed path ---
+  if (isHomeowner) {
     // Create a demo management company for this homeowner
     await db.ref(`users/${mgmtKey}`).set({
       id: mgmtKey,
@@ -86,8 +94,25 @@ export async function POST(req: NextRequest) {
       createdAt: now - 120 * DAY,
     });
 
-    // Create one job linking the demo manager to this homeowner
-    const hwName = userRole ? (await db.ref(`users/${userId}`).get()).val()?.name || "Homeowner" : "Homeowner";
+    // Create homeowner profile if it doesn't exist
+    const hwSnap = await db.ref(`users/${userId}`).get();
+    let hwName = "Demo Homeowner";
+    if (hwSnap.exists()) {
+      hwName = hwSnap.val()?.name || "Demo Homeowner";
+    } else {
+      await db.ref(`users/${userId}`).set({
+        id: userId,
+        clerkId: userId,
+        role: "homeowner",
+        name: "Demo Homeowner",
+        email: "demo@homeowner.com",
+        phone: "555-200-0000",
+        address: "742 Evergreen Terrace, Springfield",
+        company: "",
+        createdAt: now - 100 * DAY,
+      });
+    }
+
     await db.ref(`jobs/${job1}`).set({
       managementId: mgmtId,
       managementName: "Apex Property Management",
@@ -239,13 +264,14 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ seeded: true });
   }
 
-  // --- Management / anonymous demo seed path ---
+  // --- Management seed path ---
 
-  // Users — management placeholder (only for anonymous demo), plus scoped homeowners
-  if (isDemoMode) {
-    await db.ref(`users/${mgmtKey}`).set({
-      id: mgmtKey,
-      clerkId: mgmtKey,
+  // Create management user profile if it doesn't exist
+  const mgmtSnap = await db.ref(`users/${userId}`).get();
+  if (!mgmtSnap.exists()) {
+    await db.ref(`users/${userId}`).set({
+      id: userId,
+      clerkId: userId,
       role: "management",
       name: "Apex Property Management",
       email: "demo@apex-mgmt.com",
@@ -756,15 +782,14 @@ export async function POST(req: NextRequest) {
   return NextResponse.json({ seeded: true });
 }
 
-export async function DELETE(req: NextRequest) {
-  const demoRole = req.cookies.get("demo_role")?.value;
+export async function DELETE() {
   const userId = await getAuthUserId();
-  if (demoRole !== "homeowner" && demoRole !== "management" && !userId) {
-    return NextResponse.json({ error: "Demo only" }, { status: 403 });
+  if (!userId) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
   const db = getDb();
-  const { p } = resolveContext(demoRole, userId, null);
+  const p = `${userId}-demo`;
   const keys = getDemoKeys(p);
 
   const removes: Promise<void>[] = [];
@@ -779,19 +804,17 @@ export async function DELETE(req: NextRequest) {
   return NextResponse.json({ cleared: true });
 }
 
-export async function GET(req: NextRequest) {
-  const demoRole = req.cookies.get("demo_role")?.value;
+export async function GET() {
   const userId = await getAuthUserId();
-  if (demoRole !== "homeowner" && demoRole !== "management" && !userId) {
-    return NextResponse.json({ error: "Demo only" }, { status: 403 });
+  if (!userId) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
   const db = getDb();
-  const { p } = resolveContext(demoRole, userId, null);
+  const p = `${userId}-demo`;
   // Check for any seeded user — management key exists in both paths
   const check = await db.ref(`users/${p}-management`).get();
   if (!check.exists()) {
-    // Fallback to homeowner key for older seeds
     const check2 = await db.ref(`users/${p}-homeowner`).get();
     return NextResponse.json({ loaded: check2.exists() });
   }

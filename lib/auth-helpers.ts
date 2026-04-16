@@ -1,23 +1,13 @@
 import { auth } from "@clerk/nextjs/server";
-import { cookies } from "next/headers";
 import { getDb } from "./firebase-admin";
 import type { UserProfile, UserRole } from "./types";
 
 /**
- * Returns userId from Clerk auth or demo cookie.
- * Demo users get a synthetic userId based on their demo role.
+ * Returns userId from Clerk auth.
  */
 export async function getAuthUserId(): Promise<string | null> {
   const { userId } = await auth();
-  if (userId) return userId;
-
-  // Check for demo mode
-  const cookieStore = await cookies();
-  const demoRole = cookieStore.get("demo_role")?.value;
-  if (demoRole === "management") return "demo-management";
-  if (demoRole === "homeowner") return "demo-homeowner";
-
-  return null;
+  return userId;
 }
 
 export async function getCurrentUser(): Promise<{

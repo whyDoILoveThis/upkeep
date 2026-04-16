@@ -19,30 +19,13 @@ const isProtectedRoute = createRouteMatcher([
   "/api/users(.*)",
   "/api/jobs(.*)",
   "/api/equipment-templates(.*)",
+  "/api/demo(.*)",
 ]);
 
 const isPublicPage = createRouteMatcher(["/", "/sign-in(.*)", "/sign-up(.*)"]);
 
-const isDashboardRoute = createRouteMatcher(["/dashboard(.*)"]);
-
-const isDemoApiRoute = createRouteMatcher(["/api/demo(.*)"]);
-
 export default clerkMiddleware(async (auth, req) => {
   const { userId } = await auth();
-  const demoRole = req.cookies.get("demo_role")?.value;
-
-  // Allow demo users to access dashboard and demo API routes without auth
-  if (demoRole && isDashboardRoute(req)) {
-    return NextResponse.next();
-  }
-  if (demoRole && isDemoApiRoute(req)) {
-    return NextResponse.next();
-  }
-
-  // Allow demo users to access protected API routes (they use demo-* user IDs)
-  if (demoRole && isProtectedRoute(req)) {
-    return NextResponse.next();
-  }
 
   // Redirect signed-in users away from public pages to dashboard
   if (userId && isPublicPage(req)) {
