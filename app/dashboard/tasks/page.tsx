@@ -10,10 +10,10 @@ import {
   X,
   Flag,
   User,
-  Link as LinkIcon,
   ChevronDown,
   ChevronUp,
   Pencil,
+  Wrench,
 } from "lucide-react";
 import type { Task, Equipment, UserProfile } from "@/lib/types";
 import { useSelectedJob } from "@/lib/job-context";
@@ -291,6 +291,16 @@ export default function TasksPage() {
                     <div className="flex items-center gap-2 mb-1">
                       <h3 className="font-medium truncate">{task.title}</h3>
                     </div>
+                    {task.equipmentName && task.equipmentId && (
+                      <Link
+                        href={`/dashboard/equipment/${task.equipmentId}`}
+                        className="inline-flex items-center gap-1.5 text-sm px-3 py-1 rounded-lg bg-accent/15 text-accent-light hover:bg-accent/25 transition-colors font-medium mb-2"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        <Wrench className="w-3.5 h-3.5" />
+                        {task.equipmentName}
+                      </Link>
+                    )}
                     {task.description && (
                       <p className="text-sm text-muted line-clamp-2">
                         {task.description}
@@ -308,16 +318,6 @@ export default function TasksPage() {
                         <Flag className="w-3 h-3 inline mr-0.5" />
                         {task.priority}
                       </span>
-                      {task.equipmentName && task.equipmentId && (
-                        <Link
-                          href={`/dashboard/equipment/${task.equipmentId}`}
-                          className="text-xs px-2 py-0.5 rounded-full bg-accent/10 text-accent-light hover:bg-accent/20 transition-colors flex items-center gap-1 w-fit"
-                          onClick={(e) => e.stopPropagation()}
-                        >
-                          <LinkIcon className="w-3 h-3" />
-                          {task.equipmentName}
-                        </Link>
-                      )}
                       {task.homeownerName && (
                         <span className="text-xs text-muted flex items-center gap-1">
                           <User className="w-3 h-3" />
