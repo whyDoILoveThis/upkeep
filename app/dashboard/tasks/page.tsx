@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import { useProfile } from "../layout";
 import {
   Plus,
@@ -14,12 +14,15 @@ import {
   ChevronUp,
   Pencil,
   Wrench,
+  ImagePlus,
 } from "lucide-react";
+import Image from "next/image";
 import type { Task, Equipment, UserProfile } from "@/lib/types";
 import { useSelectedJob } from "@/lib/job-context";
 import HomeownerSearch from "@/components/homeowner-search";
 import { JobBadge } from "@/components/job-badge";
 import { PillSelect } from "@/components/pill-select";
+import { PhotoLightbox } from "@/components/photo-lightbox";
 import Link from "next/link";
 
 const statusColors: Record<string, string> = {
@@ -67,6 +70,13 @@ export default function TasksPage() {
   const [newUpdate, setNewUpdate] = useState("");
   const [saving, setSaving] = useState(false);
   const [sendingUpdate, setSendingUpdate] = useState(false);
+  const [pendingPhotos, setPendingPhotos] = useState<
+    { file: File; preview: string }[]
+  >([]);
+  const [uploadingPhotos, setUploadingPhotos] = useState(false);
+  const [lightboxPhotos, setLightboxPhotos] = useState<string[]>([]);
+  const [lightboxIndex, setLightboxIndex] = useState(0);
+  const photoInputRef = useRef<HTMLInputElement>(null);
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [editingTaskId, setEditingTaskId] = useState<string | null>(null);
 
@@ -181,20 +191,48 @@ export default function TasksPage() {
   }
 
   async function sendProjectUpdate(taskId: string) {
+    if (!newUpdate.trim() && pendingPhotos.length === 0) return;
     if (!newUpdate.trim()) return;
     setSendingUpdate(true);
     try {
+      // Upload pending photos first
+      let photos: { url: string; fileId: string; fileName: string; fileSize: number }[] = [];
+      if (pendingPhotos.length > 0) {
+        setUploadingPhotos(true);
+        photos = await Promise.all(
+          pendingPhotos.map(async (p) => {
+            const fd = new FormData();
+            fd.append("file", p.file);
+            const res = await fetch("/api/upload", { method: "POST", body: fd });
+            if (!res.ok) throw new Error("Upload failed");
+            const data = await res.json();
+            return {
+              url: data.fileUrl,
+              fileId: data.fileId,
+              fileName: data.fileName,
+              fileSize: data.fileSize,
+            };
+          }),
+        );
+        setUploadingPhotos(false);
+      }
+
       await fetch(`/api/tasks/${taskId}/updates`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ message: newUpdate }),
+        body: JSON.stringify({
+          message: newUpdate,
+          ...(photos.length > 0 ? { photos } : {}),
+        }),
       });
       setNewUpdate("");
+      // Revoke object URLs
+      pendingPhotos.forEach((p) => URL.revokeObjectURL(p.preview));
+      setPendingPhotos([]);
       fetchData();
-    } catch {
-      // handle
     } finally {
       setSendingUpdate(false);
+      setUploadingPhotos(false);
     }
   }
 
@@ -404,13 +442,87 @@ export default function TasksPage() {
                             <p className="text-sm text-muted">
                               {update.message}
                             </p>
+                            {update.photos && update.photos.length > 0 && (
+                              <div className="flex gap-2 mt-2 flex-wrap">
+                                {update.photos.map((photo, idx) => (
+                                  <button
+                                    key={photo.fileId}
+                                    type="button"
+                                    onClick={() => {
+                                      setLightboxPhotos(update.photos!.map((p) => p.url));
+                                      setLightboxIndex(idx);
+                                    }}
+                                    className="relative w-16 h-16 rounded-lg overflow-hidden ring-1 ring-white/10 hover:ring-accent/50 transition-all cursor-zoom-in"
+                                  >
+                                    <Image
+                                      src={photo.url}
+                                      alt="Comment photo"
+                                      fill
+                                      className="object-cover"
+                                      unoptimized
+                                    />
+                                  </button>
+                                ))}
+                              </div>
+                            )}
                           </div>
                         ))
                       )}
                     </div>
 
+                    {/* Pending photo previews */}
+                    {pendingPhotos.length > 0 && (
+                      <div className="flex gap-2 flex-wrap">
+                        {pendingPhotos.map((p, idx) => (
+                          <div key={idx} className="relative w-16 h-16 rounded-lg overflow-hidden ring-1 ring-white/10">
+                            <Image
+                              src={p.preview}
+                              alt="Pending upload"
+                              fill
+                              className="object-cover"
+                              unoptimized
+                            />
+                            <button
+                              type="button"
+                              onClick={() => {
+                                URL.revokeObjectURL(p.preview);
+                                setPendingPhotos((prev) => prev.filter((_, i) => i !== idx));
+                              }}
+                              className="absolute top-0.5 right-0.5 w-4 h-4 rounded-full bg-black/70 flex items-center justify-center"
+                            >
+                              <X className="w-3 h-3" />
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+
                     {/* Add update input */}
+                    <input
+                      ref={photoInputRef}
+                      type="file"
+                      accept="image/*"
+                      multiple
+                      className="hidden"
+                      onChange={(e) => {
+                        const files = Array.from(e.target.files || []);
+                        const newPending = files.map((f) => ({
+                          file: f,
+                          preview: URL.createObjectURL(f),
+                        }));
+                        setPendingPhotos((prev) => [...prev, ...newPending].slice(0, 10));
+                        e.target.value = "";
+                      }}
+                    />
                     <div className="flex gap-2">
+                      <button
+                        type="button"
+                        onClick={() => photoInputRef.current?.click()}
+                        className="p-2 rounded-xl glass text-muted hover:text-foreground transition-colors shrink-0"
+                        title="Attach photos"
+                      >
+                        <ImagePlus className="w-4 h-4" />
+                      </button>
                       <input
                         type="text"
                         value={newUpdate}
@@ -426,10 +538,14 @@ export default function TasksPage() {
                       />
                       <button
                         onClick={() => sendProjectUpdate(task.id)}
-                        disabled={!newUpdate.trim() || sendingUpdate}
+                        disabled={!newUpdate.trim() || sendingUpdate || uploadingPhotos}
                         className="btn-primary px-3 py-2 disabled:opacity-50"
                       >
-                        <Send className="w-4 h-4" />
+                        {uploadingPhotos ? (
+                          <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                        ) : (
+                          <Send className="w-4 h-4" />
+                        )}
                       </button>
                     </div>
                   </div>
@@ -620,6 +736,14 @@ export default function TasksPage() {
             </form>
           </div>
         </div>
+      )}
+
+      {lightboxPhotos.length > 0 && (
+        <PhotoLightbox
+          photos={lightboxPhotos}
+          initialIndex={lightboxIndex}
+          onClose={() => setLightboxPhotos([])}
+        />
       )}
     </div>
   );

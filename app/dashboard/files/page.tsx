@@ -11,6 +11,7 @@ import {
   Trash2,
   Download,
   Wrench,
+  MessageSquare,
   X,
 } from "lucide-react";
 import Image from "next/image";
@@ -263,6 +264,16 @@ export default function FilesPage() {
                       <Wrench className="w-4.5 h-4.5" />
                       {file.equipmentName}
                       <span className="text-xs opacity-60 ml-1">→</span>
+                    </Link>
+                  )}
+                  {file.taskId && (
+                    <Link
+                      href="/dashboard/tasks"
+                      onClick={(e) => e.stopPropagation()}
+                      className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-purple-400/10 text-purple-400 hover:bg-purple-400/20 transition-all text-xs font-medium w-fit mt-2"
+                    >
+                      <MessageSquare className="w-3.5 h-3.5" />
+                      From task comment
                     </Link>
                   )}
                   <div className="mt-2">

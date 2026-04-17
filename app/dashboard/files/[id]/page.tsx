@@ -16,6 +16,7 @@ import {
   X,
   Wrench,
   Calendar,
+  MessageSquare,
 } from "lucide-react";
 import type { FileRecord } from "@/lib/types";
 import { JobBadge } from "@/components/job-badge";
@@ -251,6 +252,18 @@ export default function FileDetailPage() {
             >
               <Wrench className="w-4.5 h-4.5" />
               {file.equipmentName}
+              <span className="text-xs opacity-60 ml-1">→</span>
+            </Link>
+          )}
+
+          {/* Task comment link */}
+          {file.taskId && (
+            <Link
+              href="/dashboard/tasks"
+              className="flex items-center gap-2 px-4 py-2 rounded-xl bg-purple-400/10 text-purple-400 hover:bg-purple-400/20 border border-purple-400/20 hover:border-purple-400/40 transition-all font-semibold text-base w-fit"
+            >
+              <MessageSquare className="w-4.5 h-4.5" />
+              From task comment
               <span className="text-xs opacity-60 ml-1">→</span>
             </Link>
           )}

@@ -56,6 +56,8 @@ export interface Notification {
   equipmentId?: string;
   equipmentName?: string;
   jobId?: string;
+  photoUrls?: string[];
+  updateId?: string;
   timestamp: number;
   read: boolean;
 }
@@ -67,6 +69,8 @@ export interface FileRecord {
   jobId?: string;
   equipmentId?: string;
   equipmentName?: string;
+  taskId?: string;
+  updateId?: string;
   name: string;
   url: string;
   appwriteFileId: string;
@@ -78,6 +82,7 @@ export interface FileRecord {
 export interface TaskUpdate {
   id: string;
   message: string;
+  photos?: { url: string; fileId: string }[];
   authorId: string;
   authorName: string;
   authorRole: UserRole;

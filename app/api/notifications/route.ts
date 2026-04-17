@@ -106,6 +106,7 @@ export async function GET(req: NextRequest) {
       for (const update of updates) {
         if (now - update.timestamp < 14 * DAY && update.authorId !== userId) {
           const nId = `comment-${task.id}-${update.id}`;
+          const photoUrls = update.photos?.map((p: { url: string }) => p.url) || [];
           notifications.push({
             id: nId,
             type: "task_comment",
@@ -116,6 +117,8 @@ export async function GET(req: NextRequest) {
             equipmentId: task.equipmentId,
             equipmentName: task.equipmentName,
             jobId: task.jobId,
+            ...(photoUrls.length > 0 ? { photoUrls } : {}),
+            updateId: update.id,
             timestamp: update.timestamp,
             read: !!readIds[nId],
           });

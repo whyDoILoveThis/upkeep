@@ -24,6 +24,17 @@ export const taskSchema = z.object({
 
 export const taskUpdateSchema = z.object({
   message: z.string().min(1, "Message is required").max(2000),
+  photos: z
+    .array(
+      z.object({
+        url: z.string().url(),
+        fileId: z.string(),
+        fileName: z.string().optional(),
+        fileSize: z.number().optional(),
+      }),
+    )
+    .max(10)
+    .optional(),
 });
 
 export const billingSchema = z.object({

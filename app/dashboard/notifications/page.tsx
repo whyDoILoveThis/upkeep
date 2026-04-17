@@ -11,6 +11,7 @@ import {
   Check,
   EyeOff,
 } from "lucide-react";
+import Image from "next/image";
 import type { Notification, NotificationType } from "@/lib/types";
 import { useSelectedJob } from "@/lib/job-context";
 import Link from "next/link";
@@ -250,15 +251,38 @@ export default function NotificationsPage() {
                     {notification.message}
                   </p>
 
+                  {/* Photo thumbnails */}
+                  {notification.photoUrls && notification.photoUrls.length > 0 && (
+                    <div className="flex gap-1.5 mt-2">
+                      {notification.photoUrls.slice(0, 4).map((url, idx) => (
+                        <div
+                          key={idx}
+                          className="relative w-12 h-12 rounded-lg overflow-hidden ring-1 ring-white/10"
+                        >
+                          <Image
+                            src={url}
+                            alt="Attachment"
+                            fill
+                            className="object-cover"
+                            unoptimized
+                          />
+                          {idx === 3 && notification.photoUrls!.length > 4 && (
+                            <div className="absolute inset-0 bg-black/60 flex items-center justify-center text-xs font-medium">
+                              +{notification.photoUrls!.length - 4}
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
                   <div className="flex flex-wrap items-center gap-2 mt-2">
-                    {notification.taskId && (
-                      <Link
-                        href="/dashboard/tasks"
-                        className="text-xs text-accent-light hover:underline"
-                      >
-                        View task →
-                      </Link>
-                    )}
+                    <Link
+                      href={`/dashboard/notifications/${encodeURIComponent(notification.id)}`}
+                      className="text-xs text-accent-light hover:underline"
+                    >
+                      View details →
+                    </Link>
                     {notification.equipmentName && notification.equipmentId && (
                       <Link
                         href={`/dashboard/equipment/${notification.equipmentId}`}
