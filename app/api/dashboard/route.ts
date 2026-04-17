@@ -21,6 +21,7 @@ export async function GET(req: NextRequest) {
   const isManagement = user?.role === "management";
 
   const homeownerId = req.nextUrl.searchParams.get("homeownerId");
+  const jobId = req.nextUrl.searchParams.get("jobId");
   const scopeId = isManagement && homeownerId ? homeownerId : userId;
   const isScoped = isManagement && homeownerId;
 
@@ -52,7 +53,15 @@ export async function GET(req: NextRequest) {
     db.ref(`notificationReads/${userId}`).get(),
   ]);
 
-  const equipmentCount = equipSnap.exists() ? Object.keys(equipSnap.val()).length : 0;
+  const equipmentRaw = equipSnap.exists() ? Object.keys(equipSnap.val()) : [];
+  // If jobId filtering, we need to load full equipment to check jobId
+  let equipmentCount: number;
+  if (jobId && equipSnap.exists()) {
+    const eqEntries = Object.values(equipSnap.val() as Record<string, { jobId?: string }>);
+    equipmentCount = eqEntries.filter((e) => e.jobId === jobId).length;
+  } else {
+    equipmentCount = equipmentRaw.length;
+  }
 
   const jobs: Job[] = jobsSnap.exists()
     ? Object.entries(jobsSnap.val() as Record<string, Omit<Job, "id">>).map(([id, d]) => ({ id, ...d }))
@@ -61,9 +70,10 @@ export async function GET(req: NextRequest) {
 
   const readIds: Record<string, boolean> = readSnap.exists() ? readSnap.val() : {};
 
-  const tasks: Task[] = tasksSnap.exists()
+  let tasks: Task[] = tasksSnap.exists()
     ? Object.entries(tasksSnap.val() as Record<string, Omit<Task, "id">>).map(([id, d]) => ({ id, ...d }))
     : [];
+  if (jobId) tasks = tasks.filter((t) => t.jobId === jobId);
   const activeTasks = tasks.filter((t) => t.status !== "completed").length;
 
   // Generate notifications from tasks
@@ -106,9 +116,10 @@ export async function GET(req: NextRequest) {
   allNotifications.sort((a, b) => b.timestamp - a.timestamp);
   const pendingReminders = allNotifications.filter((n) => !n.read).length;
 
-  const bills: BillingRecord[] = billingSnap.exists()
+  let bills: BillingRecord[] = billingSnap.exists()
     ? Object.entries(billingSnap.val() as Record<string, Omit<BillingRecord, "id">>).map(([id, d]) => ({ id, ...d }))
     : [];
+  if (jobId) bills = bills.filter((b) => b.jobId === jobId);
   const pendingBills = bills.filter((b) => b.status === "pending" || b.status === "overdue").length;
 
   // Handyman time — aggregate entries for the quarter
@@ -116,7 +127,8 @@ export async function GET(req: NextRequest) {
   let handymanTimeData: { scheduledMinutes: number; completedMinutes: number; quarterStart: string; quarterEnd: string };
 
   if (timeSnap.exists()) {
-    const htEntries = Object.values(timeSnap.val() as Record<string, HandymanTime>);
+    let htEntries = Object.values(timeSnap.val() as Record<string, HandymanTime>);
+    if (jobId) htEntries = htEntries.filter((e) => e.jobId === jobId);
     const qStart = new Date(quarterStart);
     const qEnd = new Date(quarterEnd);
     const quarterFiltered = htEntries.filter((e) => {

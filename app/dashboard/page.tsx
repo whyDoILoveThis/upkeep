@@ -53,10 +53,13 @@ export default function DashboardPage() {
   useEffect(() => {
     async function fetchStats() {
       try {
-        const params = selectedJob
-          ? `?homeownerId=${selectedJob.homeownerId}`
-          : "";
-        const res = await fetch(`/api/dashboard${params}`);
+        const params = new URLSearchParams();
+        if (selectedJob) {
+          params.set("homeownerId", selectedJob.homeownerId);
+          params.set("jobId", selectedJob.id);
+        }
+        const qs = params.toString();
+        const res = await fetch(`/api/dashboard${qs ? `?${qs}` : ""}`);
         if (res.ok) {
           const data = await res.json();
           setStats(data);

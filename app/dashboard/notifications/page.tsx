@@ -66,7 +66,7 @@ export default function NotificationsPage() {
   const fetchData = useCallback(async () => {
     try {
       const params = selectedJob
-        ? `?homeownerId=${selectedJob.homeownerId}`
+        ? `?homeownerId=${selectedJob.homeownerId}&jobId=${selectedJob.id}`
         : "";
       const res = await fetch(`/api/notifications${params}`);
       if (res.ok) setNotifications(await res.json());

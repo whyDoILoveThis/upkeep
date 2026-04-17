@@ -16,6 +16,7 @@ export async function GET(req: NextRequest) {
   const isManagement = user?.role === "management";
 
   const homeownerId = req.nextUrl.searchParams.get("homeownerId");
+  const jobId = req.nextUrl.searchParams.get("jobId");
   const scopeId = isManagement && homeownerId ? homeownerId : userId;
   const isScoped = isManagement && homeownerId;
 
@@ -29,11 +30,13 @@ export async function GET(req: NextRequest) {
     db.ref(`notificationReads/${userId}`).get(),
   ]);
 
-  const tasks: Task[] = tasksSnap.exists()
+  let tasks: Task[] = tasksSnap.exists()
     ? Object.entries(
         tasksSnap.val() as Record<string, Omit<Task, "id">>,
       ).map(([id, d]) => ({ id, ...d }))
     : [];
+
+  if (jobId) tasks = tasks.filter((t) => t.jobId === jobId);
 
   const readIds: Record<string, boolean> = readSnap.exists()
     ? readSnap.val()
