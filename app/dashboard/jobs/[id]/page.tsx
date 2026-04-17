@@ -79,7 +79,9 @@ export default function JobDetailPage() {
         ]);
       if (eqRes.ok) {
         const allEq = await eqRes.json();
-        setEquipment(allEq.filter((e: Equipment) => e.userId === hid && e.jobId === jobId));
+        setEquipment(
+          allEq.filter((e: Equipment) => e.userId === hid && e.jobId === jobId),
+        );
       }
       if (notifRes.ok) {
         const allNotifs = await notifRes.json();
@@ -87,15 +89,27 @@ export default function JobDetailPage() {
       }
       if (taskRes.ok) {
         const allTasks = await taskRes.json();
-        setTasks(allTasks.filter((t: Task) => t.homeownerId === hid && t.jobId === jobId));
+        setTasks(
+          allTasks.filter(
+            (t: Task) => t.homeownerId === hid && t.jobId === jobId,
+          ),
+        );
       }
       if (billRes.ok) {
         const allBills = await billRes.json();
-        setBills(allBills.filter((b: BillingRecord) => b.homeownerId === hid && b.jobId === jobId));
+        setBills(
+          allBills.filter(
+            (b: BillingRecord) => b.homeownerId === hid && b.jobId === jobId,
+          ),
+        );
       }
       if (fileRes.ok) {
         const allFiles = await fileRes.json();
-        setFiles(allFiles.filter((f: FileRecord) => f.userId === hid && f.jobId === jobId));
+        setFiles(
+          allFiles.filter(
+            (f: FileRecord) => f.userId === hid && f.jobId === jobId,
+          ),
+        );
       }
       if (dashRes.ok) {
         const dashData = await dashRes.json();

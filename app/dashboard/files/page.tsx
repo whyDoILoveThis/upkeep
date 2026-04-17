@@ -179,9 +179,7 @@ export default function FilesPage() {
                 className="glass-card rounded-xl overflow-hidden group block"
               >
                 {isImage ? (
-                  <div
-                    className="relative w-full h-40 bg-white/5"
-                  >
+                  <div className="relative w-full h-40 bg-white/5">
                     <Image
                       src={file.url}
                       alt={file.name}
@@ -208,7 +206,13 @@ export default function FilesPage() {
                           e.stopPropagation();
                           handleDelete(file.id);
                         }}
-                        onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); e.stopPropagation(); handleDelete(file.id); } }}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter") {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            handleDelete(file.id);
+                          }
+                        }}
                         className="p-1.5 rounded-lg bg-black/50 hover:bg-red-500/50 backdrop-blur-sm cursor-pointer"
                       >
                         <Trash2 className="w-3.5 h-3.5 text-white" />
@@ -233,7 +237,11 @@ export default function FilesPage() {
                           <Download className="w-3.5 h-3.5 text-muted" />
                         </a>
                         <button
-                          onClick={(e) => { e.preventDefault(); e.stopPropagation(); handleDelete(file.id); }}
+                          onClick={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            handleDelete(file.id);
+                          }}
                           className="p-1.5 rounded-lg hover:bg-red-500/20"
                         >
                           <Trash2 className="w-3.5 h-3.5 text-muted" />

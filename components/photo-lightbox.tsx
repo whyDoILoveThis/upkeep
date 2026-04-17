@@ -2,7 +2,14 @@
 
 import { useState, useEffect, useCallback, useRef } from "react";
 import Image from "next/image";
-import { X, ChevronLeft, ChevronRight, ZoomIn, ZoomOut, RotateCcw } from "lucide-react";
+import {
+  X,
+  ChevronLeft,
+  ChevronRight,
+  ZoomIn,
+  ZoomOut,
+  RotateCcw,
+} from "lucide-react";
 
 interface PhotoLightboxProps {
   photos: string[];
@@ -178,7 +185,9 @@ export function PhotoLightbox({
       <div
         ref={containerRef}
         className="relative w-full h-full max-w-5xl max-h-[85vh] m-8 overflow-hidden"
-        style={{ cursor: scale > 1 ? (isDragging ? "grabbing" : "grab") : "zoom-in" }}
+        style={{
+          cursor: scale > 1 ? (isDragging ? "grabbing" : "grab") : "zoom-in",
+        }}
         onPointerDown={handlePointerDown}
         onPointerMove={handlePointerMove}
         onPointerUp={handlePointerUp}
@@ -207,7 +216,10 @@ export function PhotoLightbox({
           {photos.map((url, i) => (
             <button
               key={url}
-              onClick={() => { setIndex(i); resetZoom(); }}
+              onClick={() => {
+                setIndex(i);
+                resetZoom();
+              }}
               className={`w-12 h-12 rounded-lg overflow-hidden border-2 transition-all ${
                 i === index
                   ? "border-accent-light scale-110"
