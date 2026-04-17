@@ -119,6 +119,7 @@ function DashboardLayoutInner({ children }: { children: React.ReactNode }) {
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
   const [unreadCount, setUnreadCount] = useState(0);
+  const [jobUnreadMap, setJobUnreadMap] = useState<Record<string, number>>({});
 
   useEffect(() => {
     if (!demoReady) return;
@@ -146,16 +147,26 @@ function DashboardLayoutInner({ children }: { children: React.ReactNode }) {
 
   const fetchUnreadCount = useCallback(async () => {
     try {
-      const params = new URLSearchParams();
-      if (selectedJob) {
-        params.set("homeownerId", selectedJob.homeownerId);
-        params.set("jobId", selectedJob.id);
-      }
-      const qs = params.toString();
-      const res = await fetch(`/api/notifications${qs ? `?${qs}` : ""}`);
+      const res = await fetch("/api/notifications");
       if (res.ok) {
-        const notifs = await res.json();
-        setUnreadCount(Array.isArray(notifs) ? notifs.filter((n: { read: boolean }) => !n.read).length : 0);
+        const notifs: Array<{ read: boolean; jobId?: string }> = await res.json();
+        const unread = Array.isArray(notifs) ? notifs.filter((n) => !n.read) : [];
+
+        // Per-job unread counts
+        const map: Record<string, number> = {};
+        for (const n of unread) {
+          if (n.jobId) {
+            map[n.jobId] = (map[n.jobId] || 0) + 1;
+          }
+        }
+        setJobUnreadMap(map);
+
+        // If a job is selected, show only that job's count; otherwise total
+        if (selectedJob) {
+          setUnreadCount(map[selectedJob.id] || 0);
+        } else {
+          setUnreadCount(unread.length);
+        }
       }
     } catch {
       // ignore
@@ -389,15 +400,9 @@ function DashboardLayoutInner({ children }: { children: React.ReactNode }) {
                                   : "text-muted hover:text-foreground hover:bg-white/5"
                               }`}
                             >
-                              <span
-                                className={`w-1.5 h-1.5 rounded-full shrink-0 ${
-                                  job.status === "active"
-                                    ? "bg-success"
-                                    : job.status === "paused"
-                                      ? "bg-warning"
-                                      : "bg-muted"
-                                }`}
-                              />
+                              {jobUnreadMap[job.id] > 0 && (
+                                <span className="w-1.5 h-1.5 rounded-full shrink-0 bg-accent" />
+                              )}
                               <span className="truncate">{job.title}</span>
                             </button>
                           ))}
