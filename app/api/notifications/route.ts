@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAuthUserId } from "@/lib/auth-helpers";
 import { getDb } from "@/lib/firebase-admin";
-import type { Task, Notification, NotificationType } from "@/lib/types";
+import type { Task, Notification } from "@/lib/types";
 
 const DAY = 86_400_000;
 
