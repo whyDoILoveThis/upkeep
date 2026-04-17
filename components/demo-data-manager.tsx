@@ -118,8 +118,8 @@ export function DemoDataManager() {
       </div>
 
       <p className="text-xs text-muted/70 leading-relaxed">
-        Demo data includes sample users, jobs, equipment, reminders, tasks,
-        billing records, handyman time entries, and equipment templates. Loading
+        Demo data includes sample users, jobs, equipment, tasks,
+        notifications, billing records, handyman time entries, and equipment templates. Loading
         will write to the live database. Unloading removes only demo-prefixed
         records.
       </p>

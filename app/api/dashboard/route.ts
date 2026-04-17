@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAuthUserId } from "@/lib/auth-helpers";
 import { getDb } from "@/lib/firebase-admin";
-import type { Reminder, Task, BillingRecord, HandymanTime, Job } from "@/lib/types";
+import type { Task, BillingRecord, HandymanTime, Job } from "@/lib/types";
 
 function getQuarterRange() {
   const now = new Date();
@@ -25,17 +25,12 @@ export async function GET(req: NextRequest) {
   const isScoped = isManagement && homeownerId;
 
   // Fetch counts in parallel
-  const [equipSnap, remindersSnap, tasksSnap, billingSnap, timeSnap, jobsSnap] = await Promise.all([
+  const [equipSnap, tasksSnap, billingSnap, timeSnap, jobsSnap, readSnap] = await Promise.all([
     isScoped
       ? db.ref("equipment").orderByChild("userId").equalTo(scopeId).get()
       : isManagement
         ? db.ref("equipment").orderByChild("managementId").equalTo(userId).get()
         : db.ref("equipment").orderByChild("userId").equalTo(userId).get(),
-    isScoped
-      ? db.ref("reminders").orderByChild("userId").equalTo(scopeId).get()
-      : isManagement
-        ? db.ref("reminders").orderByChild("managementId").equalTo(userId).get()
-        : db.ref("reminders").orderByChild("userId").equalTo(userId).get(),
     isScoped
       ? db.ref("tasks").orderByChild("homeownerId").equalTo(scopeId).get()
       : isManagement
@@ -54,6 +49,7 @@ export async function GET(req: NextRequest) {
     isManagement
       ? db.ref("jobs").orderByChild("managementId").equalTo(userId).get()
       : db.ref("jobs").orderByChild("homeownerId").equalTo(userId).get(),
+    db.ref(`notificationReads/${userId}`).get(),
   ]);
 
   const equipmentCount = equipSnap.exists() ? Object.keys(equipSnap.val()).length : 0;
@@ -63,15 +59,52 @@ export async function GET(req: NextRequest) {
     : [];
   const activeJobs = jobs.filter((j) => j.status === "active").length;
 
-  const reminders: Reminder[] = remindersSnap.exists()
-    ? Object.entries(remindersSnap.val() as Record<string, Omit<Reminder, "id">>).map(([id, d]) => ({ id, ...d }))
-    : [];
-  const pendingReminders = reminders.filter((r) => !r.completed).length;
+  const readIds: Record<string, boolean> = readSnap.exists() ? readSnap.val() : {};
 
   const tasks: Task[] = tasksSnap.exists()
     ? Object.entries(tasksSnap.val() as Record<string, Omit<Task, "id">>).map(([id, d]) => ({ id, ...d }))
     : [];
   const activeTasks = tasks.filter((t) => t.status !== "completed").length;
+
+  // Generate notifications from tasks
+  const now = Date.now();
+  const DAY = 86_400_000;
+  interface DashNotification {
+    id: string;
+    type: string;
+    title: string;
+    message: string;
+    taskId?: string;
+    timestamp: number;
+    read: boolean;
+  }
+  const allNotifications: DashNotification[] = [];
+
+  for (const task of tasks) {
+    if (task.status === "pending" && now - task.createdAt < 7 * DAY) {
+      const nId = `new-task-${task.id}`;
+      allNotifications.push({ id: nId, type: "new_task", title: "New Task", message: task.title, taskId: task.id, timestamp: task.createdAt, read: !!readIds[nId] });
+    }
+    if (task.priority === "high" && task.status !== "completed") {
+      const nId = `high-priority-${task.id}`;
+      allNotifications.push({ id: nId, type: "task_high_priority", title: "High Priority", message: task.title, taskId: task.id, timestamp: task.updatedAt || task.createdAt, read: !!readIds[nId] });
+    }
+    if (task.status === "completed" && task.updatedAt && now - task.updatedAt < 7 * DAY) {
+      const nId = `completed-${task.id}`;
+      allNotifications.push({ id: nId, type: "task_completed", title: "Task Completed", message: task.title, taskId: task.id, timestamp: task.updatedAt, read: !!readIds[nId] });
+    }
+    if (task.updates) {
+      for (const update of Object.values(task.updates)) {
+        if (now - update.timestamp < 14 * DAY && update.authorId !== userId) {
+          const nId = `comment-${task.id}-${update.id}`;
+          allNotifications.push({ id: nId, type: "task_comment", title: "New Comment", message: `${update.authorName}: ${update.message}`, taskId: task.id, timestamp: update.timestamp, read: !!readIds[nId] });
+        }
+      }
+    }
+  }
+
+  allNotifications.sort((a, b) => b.timestamp - a.timestamp);
+  const pendingReminders = allNotifications.filter((n) => !n.read).length;
 
   const bills: BillingRecord[] = billingSnap.exists()
     ? Object.entries(billingSnap.val() as Record<string, Omit<BillingRecord, "id">>).map(([id, d]) => ({ id, ...d }))
@@ -119,17 +152,8 @@ export async function GET(req: NextRequest) {
       updatedAt: t.updatedAt,
     }));
 
-  // Upcoming reminders (next 5 uncompleted)
-  const upcomingReminders = reminders
-    .filter((r) => !r.completed)
-    .sort((a, b) => new Date(a.dueDate as string).getTime() - new Date(b.dueDate as string).getTime())
-    .slice(0, 5)
-    .map((r) => ({
-      id: r.id,
-      title: r.title,
-      dueDate: r.dueDate,
-      equipmentName: r.equipmentName,
-    }));
+  // Recent notifications (top 5)
+  const upcomingReminders = allNotifications.slice(0, 5);
 
   return NextResponse.json({
     equipmentCount,

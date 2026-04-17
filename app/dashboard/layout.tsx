@@ -57,7 +57,7 @@ const navItems = [
     managementOnly: true,
   },
   { href: "/dashboard/equipment", icon: Wrench, label: "Equipment" },
-  { href: "/dashboard/reminders", icon: Bell, label: "Reminders" },
+  { href: "/dashboard/notifications", icon: Bell, label: "Notifications" },
   { href: "/dashboard/files", icon: FolderOpen, label: "Files" },
   { href: "/dashboard/tasks", icon: ClipboardList, label: "Tasks" },
   { href: "/dashboard/billing", icon: Receipt, label: "Billing" },

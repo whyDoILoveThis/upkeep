@@ -40,19 +40,24 @@ export interface Equipment {
   updatedAt: number;
 }
 
-export interface Reminder {
+export type NotificationType =
+  | "new_task"
+  | "task_comment"
+  | "task_high_priority"
+  | "task_completed";
+
+export interface Notification {
   id: string;
-  userId: string;
-  managementId?: string;
-  jobId?: string;
+  type: NotificationType;
   title: string;
-  description?: string;
-  dueDate: string;
-  recurring: "none" | "weekly" | "monthly" | "quarterly" | "yearly";
+  message: string;
+  taskId?: string;
+  taskTitle?: string;
   equipmentId?: string;
   equipmentName?: string;
-  completed: boolean;
-  createdAt: number;
+  jobId?: string;
+  timestamp: number;
+  read: boolean;
 }
 
 export interface FileRecord {

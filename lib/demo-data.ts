@@ -1,7 +1,7 @@
 import type {
   UserProfile,
   Equipment,
-  Reminder,
+  Notification,
   FileRecord,
   Task,
   TaskUpdate,
@@ -187,92 +187,72 @@ export const demoEquipment: Equipment[] = [
   },
 ];
 
-// ─── Reminders ─────────────────────────────────────────────
+// ─── Notifications (generated from tasks) ──────────────────
 
-export const demoReminders: Reminder[] = [
-  {
-    id: "rem-1",
-    userId: "demo-homeowner",
-    title: "Replace HVAC Filter",
-    description: "Swap out the 20x25x1 MERV-13 filter in the basement unit.",
-    dueDate: new Date(Date.now() + 5 * 86400000).toISOString().slice(0, 10),
-    recurring: "quarterly",
-    equipmentId: "eq-1",
-    equipmentName: "Central HVAC System",
-    completed: false,
-    createdAt: now - 80 * 86400000,
-  },
-  {
-    id: "rem-2",
-    userId: "demo-homeowner",
-    title: "Annual Water Heater Flush",
-    description: "Flush the tankless water heater to clear mineral deposits.",
-    dueDate: new Date(Date.now() + 30 * 86400000).toISOString().slice(0, 10),
-    recurring: "yearly",
-    equipmentId: "eq-2",
-    equipmentName: "Tankless Water Heater",
-    completed: false,
-    createdAt: now - 60 * 86400000,
-  },
-  {
-    id: "rem-3",
-    userId: "demo-homeowner",
-    title: "Gutter Cleaning",
-    description: "Clean all gutters and downspouts before winter.",
-    dueDate: new Date(Date.now() - 10 * 86400000).toISOString().slice(0, 10),
-    recurring: "yearly",
-    completed: true,
-    createdAt: now - 40 * 86400000,
-  },
-  {
-    id: "rem-4",
-    userId: "demo-homeowner",
-    title: "Lubricate Garage Door",
-    description: "Apply white lithium grease to tracks and rollers.",
-    dueDate: new Date(Date.now() + 15 * 86400000).toISOString().slice(0, 10),
-    recurring: "monthly",
-    equipmentId: "eq-3",
-    equipmentName: "Garage Door Opener",
-    completed: false,
-    createdAt: now - 20 * 86400000,
-  },
-  {
-    id: "rem-5",
-    userId: "demo-homeowner",
-    title: "Dryer Vent Cleaning",
-    description: "Professional cleaning of dryer exhaust duct.",
-    dueDate: new Date(Date.now() + 60 * 86400000).toISOString().slice(0, 10),
-    recurring: "yearly",
-    equipmentId: "eq-5",
-    equipmentName: "Samsung Washer & Dryer",
-    completed: false,
-    createdAt: now - 10 * 86400000,
-  },
-  // Homeowner 2
-  {
-    id: "rem-6",
-    userId: "demo-homeowner-2",
-    title: "Dishwasher Filter Clean",
-    dueDate: new Date(Date.now() + 3 * 86400000).toISOString().slice(0, 10),
-    recurring: "monthly",
-    equipmentId: "eq-6",
-    equipmentName: "Bosch Dishwasher",
-    completed: false,
-    createdAt: now - 15 * 86400000,
-  },
-  // Homeowner 3
-  {
-    id: "rem-7",
-    userId: "demo-homeowner-3",
-    title: "Generator Load Test",
-    dueDate: new Date(Date.now() + 20 * 86400000).toISOString().slice(0, 10),
-    recurring: "quarterly",
-    equipmentId: "eq-8",
-    equipmentName: "Generac Standby Generator",
-    completed: false,
-    createdAt: now - 30 * 86400000,
-  },
-];
+function generateDemoNotifications(): Notification[] {
+  const notifications: Notification[] = [];
+  for (const task of demoTasks) {
+    // New task notification
+    if (task.status === "pending" && task.createdAt > now - 7 * 86400000) {
+      notifications.push({
+        id: `notif-new-${task.id}`,
+        type: "new_task",
+        title: "New Task",
+        message: `"${task.title}" has been created`,
+        taskId: task.id,
+        taskTitle: task.title,
+        timestamp: task.createdAt,
+        read: false,
+      });
+    }
+    // High priority notification
+    if (task.priority === "high" && task.status !== "completed") {
+      notifications.push({
+        id: `notif-priority-${task.id}`,
+        type: "task_high_priority",
+        title: "High Priority Task",
+        message: `"${task.title}" requires immediate attention`,
+        taskId: task.id,
+        taskTitle: task.title,
+        timestamp: task.createdAt,
+        read: false,
+      });
+    }
+    // Completed task notification
+    if (task.status === "completed" && task.updatedAt > now - 7 * 86400000) {
+      notifications.push({
+        id: `notif-done-${task.id}`,
+        type: "task_completed",
+        title: "Task Completed",
+        message: `"${task.title}" has been marked as completed`,
+        taskId: task.id,
+        taskTitle: task.title,
+        timestamp: task.updatedAt,
+        read: true,
+      });
+    }
+    // Comment notifications
+    if (task.updates) {
+      for (const [key, update] of Object.entries(task.updates)) {
+        if (update.timestamp > now - 14 * 86400000) {
+          notifications.push({
+            id: `notif-comment-${task.id}-${key}`,
+            type: "task_comment",
+            title: "New Comment",
+            message: `New comment on "${task.title}"`,
+            taskId: task.id,
+            taskTitle: task.title,
+            timestamp: update.timestamp,
+            read: false,
+          });
+        }
+      }
+    }
+  }
+  return notifications.sort((a, b) => b.timestamp - a.timestamp);
+}
+
+export const demoNotifications = generateDemoNotifications();
 
 // ─── Files ─────────────────────────────────────────────────
 
@@ -679,13 +659,13 @@ export function getDemoDashboardStats(role: "homeowner" | "management") {
 
   if (role === "homeowner") {
     const myEquip = demoEquipment.filter((e) => e.userId === "demo-homeowner");
-    const myReminders = demoReminders.filter((r) => r.userId === "demo-homeowner");
+    const myNotifs = demoNotifications;
     const myTasks = demoTasks.filter((t) => t.homeownerId === "demo-homeowner");
     const myBills = demoBills.filter((b) => b.homeownerId === "demo-homeowner");
 
     return {
       equipmentCount: myEquip.length,
-      pendingReminders: myReminders.filter((r) => !r.completed).length,
+      pendingReminders: myNotifs.filter((n) => !n.read).length,
       activeTasks: myTasks.filter((t) => t.status !== "completed").length,
       pendingBills: myBills.filter((b) => b.status === "pending" || b.status === "overdue").length,
       timeAllotment: allotment,
@@ -696,15 +676,16 @@ export function getDemoDashboardStats(role: "homeowner" | "management") {
         priority: t.priority,
         updatedAt: t.updatedAt,
       })),
-      upcomingReminders: myReminders
-        .filter((r) => !r.completed)
-        .sort((a, b) => new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime())
+      upcomingReminders: myNotifs
         .slice(0, 5)
-        .map((r) => ({
-          id: r.id,
-          title: r.title,
-          dueDate: r.dueDate,
-          equipmentName: r.equipmentName,
+        .map((n) => ({
+          id: n.id,
+          title: n.title,
+          type: n.type,
+          message: n.message,
+          taskId: n.taskId,
+          timestamp: n.timestamp,
+          read: n.read,
         })),
     };
   }
@@ -712,7 +693,7 @@ export function getDemoDashboardStats(role: "homeowner" | "management") {
   // Management sees everything
   return {
     equipmentCount: demoEquipment.length,
-    pendingReminders: demoReminders.filter((r) => !r.completed).length,
+    pendingReminders: demoNotifications.filter((n) => !n.read).length,
     activeTasks: demoTasks.filter((t) => t.status !== "completed").length,
     pendingBills: demoBills.filter((b) => b.status === "pending" || b.status === "overdue").length,
     activeJobs: demoJobs.filter((j) => j.status === "active").length,
@@ -724,15 +705,16 @@ export function getDemoDashboardStats(role: "homeowner" | "management") {
       priority: t.priority,
       updatedAt: t.updatedAt,
     })),
-    upcomingReminders: demoReminders
-      .filter((r) => !r.completed)
-      .sort((a, b) => new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime())
+    upcomingReminders: demoNotifications
       .slice(0, 5)
-      .map((r) => ({
-        id: r.id,
-        title: r.title,
-        dueDate: r.dueDate,
-        equipmentName: r.equipmentName,
+      .map((n) => ({
+        id: n.id,
+        title: n.title,
+        type: n.type,
+        message: n.message,
+        taskId: n.taskId,
+        timestamp: n.timestamp,
+        read: n.read,
       })),
   };
 }
@@ -741,14 +723,14 @@ export function getDemoDashboardStats(role: "homeowner" | "management") {
 
 export function getDemoDashboardStatsForJob(homeownerId: string) {
   const myEquip = demoEquipment.filter((e) => e.userId === homeownerId);
-  const myReminders = demoReminders.filter((r) => r.userId === homeownerId);
+  const myNotifs = demoNotifications;
   const myTasks = demoTasks.filter((t) => t.homeownerId === homeownerId);
   const myBills = demoBills.filter((b) => b.homeownerId === homeownerId);
   const myAllotment = demoTimeAllotments.find((a) => a.userId === homeownerId) || null;
 
   return {
     equipmentCount: myEquip.length,
-    pendingReminders: myReminders.filter((r) => !r.completed).length,
+    pendingReminders: myNotifs.filter((n) => !n.read).length,
     activeTasks: myTasks.filter((t) => t.status !== "completed").length,
     pendingBills: myBills.filter((b) => b.status === "pending" || b.status === "overdue").length,
     timeAllotment: myAllotment,
@@ -759,15 +741,16 @@ export function getDemoDashboardStatsForJob(homeownerId: string) {
       priority: t.priority,
       updatedAt: t.updatedAt,
     })),
-    upcomingReminders: myReminders
-      .filter((r) => !r.completed)
-      .sort((a, b) => new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime())
+    upcomingReminders: myNotifs
       .slice(0, 5)
-      .map((r) => ({
-        id: r.id,
-        title: r.title,
-        dueDate: r.dueDate,
-        equipmentName: r.equipmentName,
+      .map((n) => ({
+        id: n.id,
+        title: n.title,
+        type: n.type,
+        message: n.message,
+        taskId: n.taskId,
+        timestamp: n.timestamp,
+        read: n.read,
       })),
   };
 }
@@ -776,7 +759,7 @@ export function getDemoDataForRole(role: "homeowner" | "management") {
   if (role === "management") {
     return {
       equipment: demoEquipment,
-      reminders: demoReminders,
+      notifications: demoNotifications,
       files: demoFiles,
       tasks: demoTasks,
       bills: demoBills,
@@ -791,7 +774,7 @@ export function getDemoDataForRole(role: "homeowner" | "management") {
   const uid = "demo-homeowner";
   return {
     equipment: demoEquipment.filter((e) => e.userId === uid),
-    reminders: demoReminders.filter((r) => r.userId === uid),
+    notifications: demoNotifications,
     files: demoFiles.filter((f) => f.userId === uid),
     tasks: demoTasks.filter((t) => t.homeownerId === uid),
     bills: demoBills.filter((b) => b.homeownerId === uid),

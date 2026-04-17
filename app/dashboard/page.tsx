@@ -10,7 +10,6 @@ import {
   Receipt,
   Timer,
   ArrowUpRight,
-  Calendar,
   Briefcase,
 } from "lucide-react";
 import Link from "next/link";
@@ -37,9 +36,12 @@ interface DashboardStats {
   }>;
   upcomingReminders: Array<{
     id: string;
+    type: string;
     title: string;
-    dueDate: string;
-    equipmentName?: string;
+    message: string;
+    taskId?: string;
+    timestamp: number;
+    read: boolean;
   }>;
 }
 
@@ -88,10 +90,10 @@ export default function DashboardPage() {
       bg: "bg-blue-400/10",
     },
     {
-      label: "Pending Reminders",
-      value: stats?.pendingReminders ?? "—",
+      label: "Unread Notifications",
+      value: stats?.pendingReminders ?? "\u2014",
       icon: Bell,
-      href: "/dashboard/reminders",
+      href: "/dashboard/notifications",
       color: "text-amber-400",
       bg: "bg-amber-400/10",
     },
@@ -228,15 +230,15 @@ export default function DashboardPage() {
           </div>
         </div>
 
-        {/* Upcoming Reminders */}
+        {/* Recent Notifications */}
         <div className="glass-card rounded-2xl p-6">
           <div className="flex items-center justify-between mb-4">
             <h2 className="font-semibold flex items-center gap-2">
-              <Calendar className="w-4 h-4 text-accent-light" />
-              Upcoming Reminders
+              <Bell className="w-4 h-4 text-accent-light" />
+              Notifications
             </h2>
             <Link
-              href="/dashboard/reminders"
+              href="/dashboard/notifications"
               className="text-xs text-accent-light hover:underline"
             >
               View All
@@ -245,30 +247,27 @@ export default function DashboardPage() {
 
           <div className="space-y-2">
             {stats?.upcomingReminders && stats.upcomingReminders.length > 0 ? (
-              stats.upcomingReminders.map((reminder) => (
+              stats.upcomingReminders.map((n) => (
                 <div
-                  key={reminder.id}
+                  key={n.id}
                   className="flex items-center justify-between py-2.5 border-b border-border last:border-0"
                 >
                   <div className="min-w-0">
-                    <div className="text-sm truncate">{reminder.title}</div>
-                    {reminder.equipmentName && (
-                      <div className="text-xs text-muted">
-                        {reminder.equipmentName}
-                      </div>
-                    )}
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs font-medium px-1.5 py-0.5 rounded-full bg-white/5 text-muted">
+                        {n.title}
+                      </span>
+                      {!n.read && (
+                        <span className="w-1.5 h-1.5 rounded-full bg-accent-light shrink-0" />
+                      )}
+                    </div>
+                    <div className="text-sm truncate mt-0.5">{n.message}</div>
                   </div>
-                  <span className="text-xs text-accent-light whitespace-nowrap ml-3">
-                    {new Date(reminder.dueDate).toLocaleDateString("en-US", {
-                      month: "short",
-                      day: "numeric",
-                    })}
-                  </span>
                 </div>
               ))
             ) : (
               <div className="text-sm text-muted text-center py-8">
-                No upcoming reminders
+                No notifications
               </div>
             )}
           </div>

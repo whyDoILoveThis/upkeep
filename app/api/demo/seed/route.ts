@@ -20,7 +20,6 @@ function getDemoKeys(p: string): Record<string, string[]> {
     handymanTime: [`${p}-ht-1`, `${p}-ht-2`, `${p}-ht-3`, `${p}-ht-4`],
     equipmentTemplates: [`${p}-tmpl-1`, `${p}-tmpl-2`, `${p}-tmpl-3`],
     equipment: [`${p}-eq-1`, `${p}-eq-2`, `${p}-eq-3`, `${p}-eq-4`, `${p}-eq-5`, `${p}-eq-6`],
-    reminders: [`${p}-rem-1`, `${p}-rem-2`, `${p}-rem-3`, `${p}-rem-4`, `${p}-rem-5`, `${p}-rem-6`],
     tasks: [`${p}-task-1`, `${p}-task-2`, `${p}-task-3`, `${p}-task-4`],
     billing: [`${p}-bill-1`, `${p}-bill-2`, `${p}-bill-3`, `${p}-bill-4`, `${p}-bill-5`],
   };
@@ -173,36 +172,6 @@ export async function POST(req: NextRequest) {
         notes: "Wi-Fi enabled. Replace remote sensor batteries yearly.",
         createdAt: now - 60 * DAY,
         updatedAt: now - 60 * DAY,
-      },
-    });
-
-    // Reminders
-    await db.ref("reminders").update({
-      [`${p}-rem-1`]: {
-        userId,
-        managementId: mgmtId,
-        jobId: job1,
-        title: "Replace HVAC filter",
-        description: "20x25x1 pleated filter for central AC unit",
-        dueDate: new Date(now + 14 * DAY).toISOString().split("T")[0],
-        recurring: "quarterly",
-        equipmentId: eq1,
-        equipmentName: "Central Air Conditioner",
-        completed: false,
-        createdAt: now - 60 * DAY,
-      },
-      [`${p}-rem-2`]: {
-        userId,
-        managementId: mgmtId,
-        jobId: job1,
-        title: "Descale water heater",
-        description: "Annual vinegar flush for tankless unit",
-        dueDate: new Date(now + 60 * DAY).toISOString().split("T")[0],
-        recurring: "yearly",
-        equipmentId: eq2,
-        equipmentName: "Tankless Water Heater",
-        completed: false,
-        createdAt: now - 50 * DAY,
       },
     });
 
@@ -544,86 +513,6 @@ export async function POST(req: NextRequest) {
     },
   };
   await db.ref("equipment").update(equipmentData);
-
-  // Reminders
-  const remindersData: Record<string, unknown> = {
-    [`${p}-rem-1`]: {
-      userId: hw1,
-      managementId: mgmtId,
-      jobId: job1,
-      title: "Replace HVAC filter",
-      description: "20x25x1 pleated filter for central AC unit",
-      dueDate: new Date(now + 14 * DAY).toISOString().split("T")[0],
-      recurring: "quarterly",
-      equipmentId: eq1,
-      equipmentName: "Central Air Conditioner",
-      completed: false,
-      createdAt: now - 60 * DAY,
-    },
-    [`${p}-rem-2`]: {
-      userId: hw1,
-      managementId: mgmtId,
-      jobId: job1,
-      title: "Descale water heater",
-      description: "Annual vinegar flush for tankless unit",
-      dueDate: new Date(now + 60 * DAY).toISOString().split("T")[0],
-      recurring: "yearly",
-      equipmentId: eq2,
-      equipmentName: "Tankless Water Heater",
-      completed: false,
-      createdAt: now - 50 * DAY,
-    },
-    [`${p}-rem-3`]: {
-      userId: hw1,
-      managementId: mgmtId,
-      jobId: job1,
-      title: "Replace thermostat sensor batteries",
-      dueDate: new Date(now - 5 * DAY).toISOString().split("T")[0],
-      recurring: "yearly",
-      equipmentId: eq3,
-      equipmentName: "Smart Thermostat",
-      completed: true,
-      createdAt: now - 40 * DAY,
-    },
-    [`${p}-rem-4`]: {
-      userId: hw2,
-      managementId: mgmtId,
-      jobId: job2,
-      title: "Pool pump inspection",
-      description: "Check impeller and seals",
-      dueDate: new Date(now + 7 * DAY).toISOString().split("T")[0],
-      recurring: "quarterly",
-      equipmentId: eq4,
-      equipmentName: "Pool Pump",
-      completed: false,
-      createdAt: now - 30 * DAY,
-    },
-    [`${p}-rem-5`]: {
-      userId: hw2,
-      managementId: mgmtId,
-      jobId: job2,
-      title: "Lubricate garage door rails",
-      dueDate: new Date(now + 30 * DAY).toISOString().split("T")[0],
-      recurring: "monthly",
-      equipmentId: eq5,
-      equipmentName: "Garage Door Opener",
-      completed: false,
-      createdAt: now - 25 * DAY,
-    },
-    [`${p}-rem-6`]: {
-      userId: hw3,
-      managementId: mgmtId,
-      jobId: job3,
-      title: "Change furnace filter",
-      dueDate: new Date(now + 21 * DAY).toISOString().split("T")[0],
-      recurring: "quarterly",
-      equipmentId: eq6,
-      equipmentName: "Furnace",
-      completed: false,
-      createdAt: now - 15 * DAY,
-    },
-  };
-  await db.ref("reminders").update(remindersData);
 
   // Tasks
   const tasksData: Record<string, unknown> = {

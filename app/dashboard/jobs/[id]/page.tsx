@@ -21,7 +21,7 @@ import {
 import type {
   Job,
   Equipment,
-  Reminder,
+  Notification,
   Task,
   BillingRecord,
   FileRecord,
@@ -35,7 +35,7 @@ export default function JobDetailPage() {
 
   const [job, setJob] = useState<Job | null>(null);
   const [equipment, setEquipment] = useState<Equipment[]>([]);
-  const [reminders, setReminders] = useState<Reminder[]>([]);
+  const [notifications, setNotifications] = useState<Notification[]>([]);
   const [tasks, setTasks] = useState<Task[]>([]);
   const [bills, setBills] = useState<BillingRecord[]>([]);
   const [files, setFiles] = useState<FileRecord[]>([]);
@@ -67,23 +67,23 @@ export default function JobDetailPage() {
       const jobData = await jobRes.json();
       setJob(jobData);
 
-      const [eqRes, remRes, taskRes, billRes, fileRes, dashRes] =
+      const hid = jobData.homeownerId;
+      const [eqRes, notifRes, taskRes, billRes, fileRes, dashRes] =
         await Promise.all([
           fetch("/api/equipment"),
-          fetch("/api/reminders"),
+          fetch(`/api/notifications?homeownerId=${hid}`),
           fetch("/api/tasks"),
           fetch("/api/billing"),
           fetch("/api/files"),
-          fetch("/api/dashboard"),
+          fetch(`/api/dashboard?homeownerId=${hid}`),
         ]);
-      const hid = jobData.homeownerId;
       if (eqRes.ok) {
         const allEq = await eqRes.json();
         setEquipment(allEq.filter((e: Equipment) => e.userId === hid));
       }
-      if (remRes.ok) {
-        const allRem = await remRes.json();
-        setReminders(allRem.filter((r: Reminder) => r.userId === hid));
+      if (notifRes.ok) {
+        const allNotifs = await notifRes.json();
+        setNotifications(allNotifs);
       }
       if (taskRes.ok) {
         const allTasks = await taskRes.json();
@@ -257,9 +257,9 @@ export default function JobDetailPage() {
             <Bell className="w-4.5 h-4.5 text-amber-400" />
           </div>
           <div className="text-2xl font-bold">
-            {reminders.filter((r) => !r.completed).length}
+            {notifications.filter((n) => !n.read).length}
           </div>
-          <div className="text-xs text-muted">Reminders</div>
+          <div className="text-xs text-muted">Notifications</div>
         </div>
       </div>
 
