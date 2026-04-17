@@ -434,11 +434,9 @@ export default function EquipmentDetailPage() {
           </h2>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             {linkedFiles.map((file) => (
-              <a
+              <Link
                 key={file.id}
-                href={file.url}
-                target="_blank"
-                rel="noopener noreferrer"
+                href={`/dashboard/files/${file.id}`}
                 className="glass-card rounded-xl p-4 hover:bg-white/5 transition-colors"
               >
                 <div className="font-medium text-sm truncate">{file.name}</div>
@@ -449,7 +447,7 @@ export default function EquipmentDetailPage() {
                       ? (file.size / 1024).toFixed(1) + " KB"
                       : (file.size / (1024 * 1024)).toFixed(1) + " MB"}
                 </div>
-              </a>
+              </Link>
             ))}
           </div>
         </div>

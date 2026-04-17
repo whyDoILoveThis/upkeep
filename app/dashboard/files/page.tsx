@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
+import { useSearchParams } from "next/navigation";
 import {
   FolderOpen,
   Upload,
@@ -9,7 +10,7 @@ import {
   File,
   Trash2,
   Download,
-  Link as LinkIcon,
+  Wrench,
   X,
 } from "lucide-react";
 import Image from "next/image";
@@ -18,7 +19,6 @@ import { useSelectedJob } from "@/lib/job-context";
 import Link from "next/link";
 import { useProfile } from "../layout";
 import { JobBadge } from "@/components/job-badge";
-import { PhotoLightbox } from "@/components/photo-lightbox";
 
 function formatFileSize(bytes: number) {
   if (bytes < 1024) return bytes + " B";
@@ -33,18 +33,19 @@ function getFileIcon(type: string) {
 }
 
 export default function FilesPage() {
-  const { profile } = useProfile();
+  useProfile();
   const { selectedJob } = useSelectedJob();
+  const searchParams = useSearchParams();
   const [files, setFiles] = useState<FileRecord[]>([]);
   const [equipment, setEquipment] = useState<Equipment[]>([]);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [selectedEquipmentId, setSelectedEquipmentId] = useState("");
-  const [filterEquipmentId, setFilterEquipmentId] = useState("");
+  const [filterEquipmentId, setFilterEquipmentId] = useState(
+    searchParams.get("equipment") || "",
+  );
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
-  const [lightboxPhotos, setLightboxPhotos] = useState<string[] | null>(null);
-  const [lightboxIndex, setLightboxIndex] = useState(0);
 
   const fetchData = useCallback(async () => {
     try {
@@ -172,23 +173,14 @@ export default function FilesPage() {
             const FileIcon = getFileIcon(file.type);
             const isImage = file.type.startsWith("image/");
             return (
-              <div
+              <Link
                 key={file.id}
-                className="glass-card rounded-xl overflow-hidden group"
+                href={`/dashboard/files/${file.id}`}
+                className="glass-card rounded-xl overflow-hidden group block"
               >
                 {isImage ? (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      const imageFiles = filtered.filter((f) =>
-                        f.type.startsWith("image/"),
-                      );
-                      const urls = imageFiles.map((f) => f.url);
-                      const idx = imageFiles.findIndex((f) => f.id === file.id);
-                      setLightboxPhotos(urls);
-                      setLightboxIndex(idx >= 0 ? idx : 0);
-                    }}
-                    className="relative w-full h-40 bg-white/5 cursor-pointer"
+                  <div
+                    className="relative w-full h-40 bg-white/5"
                   >
                     <Image
                       src={file.url}
@@ -208,17 +200,21 @@ export default function FilesPage() {
                       >
                         <Download className="w-3.5 h-3.5 text-white" />
                       </a>
-                      <button
+                      <div
+                        role="button"
+                        tabIndex={0}
                         onClick={(e) => {
+                          e.preventDefault();
                           e.stopPropagation();
                           handleDelete(file.id);
                         }}
-                        className="p-1.5 rounded-lg bg-black/50 hover:bg-red-500/50 backdrop-blur-sm"
+                        onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); e.stopPropagation(); handleDelete(file.id); } }}
+                        className="p-1.5 rounded-lg bg-black/50 hover:bg-red-500/50 backdrop-blur-sm cursor-pointer"
                       >
                         <Trash2 className="w-3.5 h-3.5 text-white" />
-                      </button>
+                      </div>
                     </div>
-                  </button>
+                  </div>
                 ) : null}
                 <div className="p-5">
                   {!isImage && (
@@ -231,12 +227,13 @@ export default function FilesPage() {
                           href={file.url}
                           target="_blank"
                           rel="noopener noreferrer"
+                          onClick={(e) => e.stopPropagation()}
                           className="p-1.5 rounded-lg hover:bg-white/10"
                         >
                           <Download className="w-3.5 h-3.5 text-muted" />
                         </a>
                         <button
-                          onClick={() => handleDelete(file.id)}
+                          onClick={(e) => { e.preventDefault(); e.stopPropagation(); handleDelete(file.id); }}
                           className="p-1.5 rounded-lg hover:bg-red-500/20"
                         >
                           <Trash2 className="w-3.5 h-3.5 text-muted" />
@@ -253,29 +250,21 @@ export default function FilesPage() {
                   {file.equipmentName && file.equipmentId && (
                     <Link
                       href={`/dashboard/equipment/${file.equipmentId}`}
-                      className="flex items-center gap-1 text-xs px-2 py-0.5 rounded-full bg-accent/10 text-accent-light hover:bg-accent/20 transition-colors w-fit mt-2"
+                      className="flex items-center gap-2 px-4 py-2 rounded-xl bg-accent/20 text-accent-light hover:bg-accent/30 border border-accent/20 hover:border-accent/40 transition-all font-semibold text-base w-fit mt-2"
                     >
-                      <LinkIcon className="w-3 h-3" />
+                      <Wrench className="w-4.5 h-4.5" />
                       {file.equipmentName}
+                      <span className="text-xs opacity-60 ml-1">→</span>
                     </Link>
                   )}
                   <div className="mt-2">
                     <JobBadge jobId={file.jobId} />
                   </div>
                 </div>
-              </div>
+              </Link>
             );
           })}
         </div>
-      )}
-
-      {/* Photo Lightbox */}
-      {lightboxPhotos && (
-        <PhotoLightbox
-          photos={lightboxPhotos}
-          initialIndex={lightboxIndex}
-          onClose={() => setLightboxPhotos(null)}
-        />
       )}
 
       {/* Upload modal */}
