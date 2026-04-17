@@ -7,9 +7,6 @@ import {
   push as fbPush,
   update,
   remove,
-  query,
-  orderByChild,
-  equalTo,
   type DatabaseReference,
   type DataSnapshot,
 } from "firebase/database";
