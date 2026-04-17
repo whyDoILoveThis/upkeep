@@ -5,6 +5,7 @@ import {
   useEffect,
   useRef,
   useMemo,
+  useCallback,
   createContext,
   useContext,
 } from "react";
@@ -117,6 +118,7 @@ function DashboardLayoutInner({ children }: { children: React.ReactNode }) {
   const jobDropdownRef = useRef<HTMLDivElement>(null);
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
+  const [unreadCount, setUnreadCount] = useState(0);
 
   useEffect(() => {
     if (!demoReady) return;
@@ -141,6 +143,30 @@ function DashboardLayoutInner({ children }: { children: React.ReactNode }) {
     }
     fetchProfile();
   }, [router, demoMode, demoReady]);
+
+  const fetchUnreadCount = useCallback(async () => {
+    try {
+      const params = new URLSearchParams();
+      if (selectedJob) {
+        params.set("homeownerId", selectedJob.homeownerId);
+        params.set("jobId", selectedJob.id);
+      }
+      const qs = params.toString();
+      const res = await fetch(`/api/notifications${qs ? `?${qs}` : ""}`);
+      if (res.ok) {
+        const notifs = await res.json();
+        setUnreadCount(Array.isArray(notifs) ? notifs.filter((n: { read: boolean }) => !n.read).length : 0);
+      }
+    } catch {
+      // ignore
+    }
+  }, [selectedJob]);
+
+  useEffect(() => {
+    if (!loading) fetchUnreadCount();
+    const interval = setInterval(fetchUnreadCount, 30_000);
+    return () => clearInterval(interval);
+  }, [loading, fetchUnreadCount]);
 
   function exitDemo() {
     setSelectedJob(null);
@@ -255,7 +281,10 @@ function DashboardLayoutInner({ children }: { children: React.ReactNode }) {
                         className={`w-4.5 h-4.5 ${isActive ? "text-accent-light" : ""}`}
                       />
                       {item.label}
-                      {isActive && (
+                      {item.href === "/dashboard/notifications" && unreadCount > 0 && (
+                        <span className="ml-auto w-2.5 h-2.5 rounded-full bg-accent shrink-0" />
+                      )}
+                      {isActive && item.href !== "/dashboard/notifications" && (
                         <ChevronRight className="w-3.5 h-3.5 ml-auto text-accent-light/50" />
                       )}
                     </Link>
@@ -321,10 +350,13 @@ function DashboardLayoutInner({ children }: { children: React.ReactNode }) {
             {/* Top bar */}
             <header className="h-16 min-h-16 flex items-center px-6 gap-4 sticky top-0 z-30 bg-background/60 backdrop-blur-md border-b border-white/5">
               <button
-                className="lg:hidden text-muted hover:text-foreground"
+                className="lg:hidden text-muted hover:text-foreground relative"
                 onClick={() => setSidebarOpen(true)}
               >
                 <Menu className="w-5 h-5" />
+                {unreadCount > 0 && (
+                  <span className="absolute -top-1 -right-1 w-2.5 h-2.5 rounded-full bg-accent ring-2 ring-background" />
+                )}
               </button>
               {profile && (
                 <div className="relative" ref={jobDropdownRef}>
